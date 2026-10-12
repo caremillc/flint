@@ -41,6 +41,11 @@
             "@test",
             "@test:configuration",
             "@test:configuration-validation"
+        ],
+        "check:framework": "@composer --working-dir=framework check",
+        "check:all": [
+            "@check:framework",
+            "@check"
         ]
     },
     "config": {
