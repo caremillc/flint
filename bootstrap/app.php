@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Providers\ConfigurationServiceProvider;
 use Flint\Configuration\Configuration;
 use Flint\Foundation\Application;
 
@@ -17,9 +18,8 @@ if (!$configuration instanceof Configuration) {
     );
 }
 
-$application->container()->instance(
-    Configuration::class,
-    $configuration,
+$application->register(
+    new ConfigurationServiceProvider($configuration),
 );
 
 return $application;
