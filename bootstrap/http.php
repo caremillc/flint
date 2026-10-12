@@ -4,9 +4,6 @@ declare(strict_types=1);
 
 use Flint\Configuration\Configuration;
 use Flint\Foundation\Application;
-use Flint\Http\Request;
-use Flint\Http\Response;
-use Flint\Http\ResponseFactory;
 use Flint\Routing\Router;
 
 $application = require __DIR__ . '/app.php';
@@ -21,22 +18,14 @@ if (! $configuration instanceof Configuration) {
     throw new RuntimeException('Application configuration is unavailable.');
 }
 
+$registerRoutes = require dirname(__DIR__) . '/routes/web.php';
+
+if (! $registerRoutes instanceof Closure) {
+    throw new RuntimeException('The route file must return a registration closure.');
+}
+
 $router = new Router();
 
-$router->add(
-    'GET',
-    '/health',
-    static fn (Request $request): Response => ResponseFactory::json([
-        'status' => 'ok',
-    ]),
-);
-
-$router->add(
-    'GET',
-    '/',
-    static fn (Request $request): Response => ResponseFactory::text(
-        $configuration->string('app.name'),
-    ),
-);
+$registerRoutes($router, $configuration);
 
 return $router;

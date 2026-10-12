@@ -35,6 +35,7 @@
             "@composer dump-autoload --optimize --strict-psr --strict-ambiguous",
             "@composer check-platform-reqs",
             "@lint",
+            "@php -l routes/web.php",
             "@test",
             "@test:configuration",
             "@test:configuration-validation",
@@ -43,7 +44,7 @@
         "check:framework": "@composer --working-dir=framework check",
         "check:all": [
             "@check:framework",
-            "@check",
+            "@check",            
             "@test:http"
         ]
     },
