@@ -23,7 +23,7 @@
             "App\\": "app/"
         }
     },
-       "scripts": {
+    "scripts": {
         "test": "@php tests/bootstrap.php",
         "test:configuration": "@php tests/configuration-bootstrap.php",
         "check": [
@@ -34,6 +34,7 @@
             "@php -l bootstrap/configuration.php",
             "@php -l tests/bootstrap.php",
             "@php -l tests/configuration-bootstrap.php",
+            "@php -l config/defaults.php",
             "@test",
             "@test:configuration"
         ]
