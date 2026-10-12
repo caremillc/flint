@@ -2,9 +2,24 @@
 
 declare(strict_types=1);
 
+use Flint\Configuration\Configuration;
 use Flint\Foundation\Application;
 
 require_once dirname(__DIR__) . '/vendor/autoload.php';
 
-return new Application(dirname(__DIR__));
+$application = new Application(dirname(__DIR__));
 
+$configuration = require __DIR__ . '/configuration.php';
+
+if (!$configuration instanceof Configuration) {
+    throw new RuntimeException(
+        'The configuration bootstrap must return a Configuration object.',
+    );
+}
+
+$application->container()->instance(
+    Configuration::class,
+    $configuration,
+);
+
+return $application;
