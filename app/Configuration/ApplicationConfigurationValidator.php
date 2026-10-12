@@ -22,7 +22,7 @@ final class ApplicationConfigurationValidator
         $configuration->boolean('app.debug');
 
         $port = $configuration->integer('database.port');
-var_dump($port);
+
         if ($port < 1 || $port > 65535) {
             throw new ConfigurationException(
                 'Configuration key "database.port" must be between 1 and 65535.',
