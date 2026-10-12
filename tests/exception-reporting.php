@@ -130,5 +130,47 @@ reportingCheck(
     'Writer failures must propagate unchanged.',
 );
 
+$entrypointRecords = [];
+
+$entrypointReporter = new ExceptionReporter(
+    static function (string $record) use (&$entrypointRecords): void {
+        $entrypointRecords[] = $record;
+    },
+);
+
+$entrypointFailure = new RuntimeException("Bootstrap failed.\nDetails.");
+
+$entrypointReporter->reportUncaught($entrypointFailure);
+
+reportingCheck(
+    count($entrypointRecords) === 1,
+    'An entry-point failure must produce one record.',
+);
+
+$entrypointRecord = $entrypointRecords[0];
+
+reportingCheck(
+    ! str_contains($entrypointRecord, "\n")
+        && ! str_contains($entrypointRecord, "\r"),
+    'Entry-point records must not contain literal line breaks.',
+);
+
+$entrypointDecoded = json_decode(
+    $entrypointRecord,
+    associative: true,
+    flags: JSON_THROW_ON_ERROR,
+);
+
+reportingCheck(
+    $entrypointDecoded === [
+        'event' => 'http.entrypoint_failed',
+        'request_id' => null,
+        'method' => null,
+        'exception' => RuntimeException::class,
+        'message' => "Bootstrap failed.\nDetails.",
+    ],
+    'Entry-point records must identify unavailable request context.',
+);
+
 echo 'PASS: Structured exception reporting, escaping, and failure propagation.'
     . PHP_EOL;

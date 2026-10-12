@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Logging\ExceptionReporter;
 use Flint\Http\Exception\RequestBodyTooLargeException;
 use Flint\Http\Output\PhpResponseOutput;
 use Flint\Http\PhpRequestFactory;
@@ -13,6 +14,12 @@ use Flint\Http\ResponseFactory;
 require_once dirname(__DIR__) . '/vendor/autoload.php';
 
 $headRequest = ($_SERVER['REQUEST_METHOD'] ?? null) === 'HEAD';
+
+$reporter = new ExceptionReporter(
+    static function (string $record): void {
+        error_log($record);
+    },
+);
 
 $respond = static function (): Response {
     $handler = require dirname(__DIR__) . '/bootstrap/http.php';
@@ -35,11 +42,15 @@ $respond = static function (): Response {
 try {
     $response = $respond();
 } catch (Throwable $exception) {
-    error_log(sprintf(
-        '[Flint] HTTP request failed: %s: %s',
-        $exception::class,
-        $exception->getMessage(),
-    ));
+    try {
+        $reporter->reportUncaught($exception);
+    } catch (Throwable) {
+        // Reporting failure must not prevent selection of an error response.
+        error_log(
+            '{"event":"http.reporting_failed",'
+            . '"message":"Could not report an entry-point exception."}',
+        );
+    }
 
     $response = ResponseFactory::text('Internal server error', 500);
 }

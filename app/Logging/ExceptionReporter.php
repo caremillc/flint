@@ -19,7 +19,28 @@ final readonly class ExceptionReporter
 
     public function __invoke(Throwable $exception, Request $request): void
     {
-        $id = $request->attribute('request.id');
+        $this->writeRecord(
+            'http.handler_failed',
+            $exception,
+            $request,
+        );
+    }
+
+    public function reportUncaught(Throwable $exception): void
+    {
+        $this->writeRecord(
+            'http.entrypoint_failed',
+            $exception,
+            null,
+        );
+    }
+
+    private function writeRecord(
+        string $event,
+        Throwable $exception,
+        ?Request $request,
+    ): void {
+        $id = $request?->attribute('request.id');
 
         if (
             ! is_string($id)
@@ -30,9 +51,9 @@ final readonly class ExceptionReporter
 
         $record = json_encode(
             [
-                'event' => 'http.handler_failed',
+                'event' => $event,
                 'request_id' => $id,
-                'method' => $request->method(),
+                'method' => $request?->method(),
                 'exception' => $exception::class,
                 'message' => $exception->getMessage(),
             ],
