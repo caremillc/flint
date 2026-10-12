@@ -30,6 +30,7 @@
         "test:configuration-validation": "@php tests/configuration-validation.php",
         "test:http": "@php framework/bin/http-smoke.php",
         "test:http-bootstrap": "@php tests/http-bootstrap.php",
+        "test:http-application": "bash bin/application-http-smoke.sh",
         "check": [
             "@composer validate --strict",
             "@composer dump-autoload --optimize --strict-psr --strict-ambiguous",
@@ -44,8 +45,9 @@
         "check:framework": "@composer --working-dir=framework check",
         "check:all": [
             "@check:framework",
-            "@check",            
-            "@test:http"
+            "@check",
+            "@test:http",
+            "@test:http-application"
         ]
     },
     "config": {
