@@ -23,15 +23,19 @@
             "App\\": "app/"
         }
     },
-    "scripts": {
+       "scripts": {
         "test": "@php tests/bootstrap.php",
+        "test:configuration": "@php tests/configuration-bootstrap.php",
         "check": [
             "@composer validate --strict",
             "@composer dump-autoload --optimize --strict-psr --strict-ambiguous",
             "@composer check-platform-reqs",
             "@php -l bootstrap/app.php",
+            "@php -l bootstrap/configuration.php",
             "@php -l tests/bootstrap.php",
-            "@test"
+            "@php -l tests/configuration-bootstrap.php",
+            "@test",
+            "@test:configuration"
         ]
     },
     "config": {
