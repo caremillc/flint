@@ -1,0 +1,32 @@
+{
+    "name": "caremillc/flint",
+    "description": "The Flint application skeleton.",
+    "type": "project",
+    "license": "MIT",
+    "require": {
+        "php": "~8.4.0 || ~8.5.0",
+        "caremillc/framework": "dev-main"
+    },
+    "repositories": [
+        {
+            "type": "path",
+            "url": "framework",
+            "options": {
+                "versions": {
+                    "caremillc/framework": "dev-main"
+                }
+            }
+        }
+    ],
+    "autoload": {
+        "psr-4": {
+            "App\\": "app/"
+        }
+    },
+    "scripts": {
+        "test": "@php tests/bootstrap.php"
+    },
+    "config": {
+        "sort-packages": true
+    }
+}

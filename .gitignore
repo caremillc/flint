@@ -1,0 +1,10 @@
+/vendor/
+/framework/
+.env
+.env.*
+!.env.example
+
+
+/.phpunit.cache/
+/.phpstan.cache/
+/.php-cs-fixer.cache
