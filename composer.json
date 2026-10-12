@@ -40,7 +40,8 @@
         "check:framework": "@composer --working-dir=framework check",
         "check:all": [
             "@check:framework",
-            "@check"
+            "@check",
+            "@test:http"
         ]
     },
     "config": {
