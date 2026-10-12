@@ -24,6 +24,7 @@
         }
     },
     "scripts": {
+        "lint": "@php bin/lint.php",
         "test": "@php tests/bootstrap.php",
         "test:configuration": "@php tests/configuration-bootstrap.php",
         "test:configuration-validation": "@php tests/configuration-validation.php",
@@ -31,13 +32,7 @@
             "@composer validate --strict",
             "@composer dump-autoload --optimize --strict-psr --strict-ambiguous",
             "@composer check-platform-reqs",
-            "@php -l bootstrap/app.php",
-            "@php -l bootstrap/configuration.php",
-            "@php -l config/defaults.php",
-            "@php -l app/Configuration/ApplicationConfigurationValidator.php",
-            "@php -l tests/bootstrap.php",
-            "@php -l tests/configuration-bootstrap.php",
-            "@php -l tests/configuration-validation.php",
+            "@lint",
             "@test",
             "@test:configuration",
             "@test:configuration-validation"
