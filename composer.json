@@ -28,6 +28,7 @@
         "test": "@php tests/bootstrap.php",
         "test:configuration": "@php tests/configuration-bootstrap.php",
         "test:configuration-validation": "@php tests/configuration-validation.php",
+        "test:http": "@php framework/bin/http-smoke.php",
         "check": [
             "@composer validate --strict",
             "@composer dump-autoload --optimize --strict-psr --strict-ambiguous",
