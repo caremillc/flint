@@ -143,6 +143,10 @@ check_response() {
     tr -d '\r' <"$temporary_dir/headers" \
         >"$temporary_dir/normalized-headers"
 
+    grep -Eiq '^x-content-type-options: nosniff$' \
+        "$temporary_dir/normalized-headers" \
+        || fail "$method $path: missing nosniff response header."
+
     if [ "$expected_status" = 405 ]; then
         grep -Eiq '^allow: GET, HEAD$' \
             "$temporary_dir/normalized-headers" \

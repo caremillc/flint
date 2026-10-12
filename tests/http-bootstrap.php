@@ -83,6 +83,31 @@ httpBootstrapCheck(
     'Home must contain the configured application name.',
 );
 
+foreach ([$health, $head, $missing, $disallowed, $home] as $response) {
+    httpBootstrapCheck(
+        $response->headers()->get('X-Content-Type-Options') === ['nosniff'],
+        'Application middleware must decorate successful and routing error responses.',
+    );
+}
+
+$secondHealth = $second->handle(
+    new Request(method: 'GET', target: '/health'),
+);
+
+httpBootstrapCheck(
+    $secondHealth->headers()->get('X-Content-Type-Options') === ['nosniff'],
+    'An independently bootstrapped handler must include middleware.',
+);
+
+$repeatedHealth = $first->handle(
+    new Request(method: 'GET', target: '/health'),
+);
+
+httpBootstrapCheck(
+    $repeatedHealth->headers()->get('X-Content-Type-Options') === ['nosniff'],
+    'Repeated requests must receive exactly one middleware header value.',
+);
+
 echo 'PASS: HTTP bootstrap, silent startup, independent handlers, and routes.'
     . PHP_EOL;
     
