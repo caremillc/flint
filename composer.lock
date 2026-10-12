@@ -12,12 +12,14 @@
             "dist": {
                 "type": "path",
                 "url": "framework",
-                "reference": "c2269377fe89145dba603d104a1150eba7d0dfbd"
+                "reference": "8e4d6c341714391404c4dc4e54b072566f4f8560"
             },
             "require": {
                 "php": "~8.4.0 || ~8.5.0"
             },
             "require-dev": {
+                "friendsofphp/php-cs-fixer": "^3.95",
+                "phpstan/phpstan": "^2.1",
                 "phpunit/phpunit": "^12.5"
             },
             "type": "library",
@@ -32,8 +34,38 @@
                 }
             },
             "scripts": {
+                "validate:package": [
+                    "@composer validate --strict"
+                ],
+                "autoload:check": [
+                    "@composer dump-autoload --optimize --strict-psr --strict-ambiguous"
+                ],
+                "platform:check": [
+                    "@composer check-platform-reqs"
+                ],
+                "lint": [
+                    "@php bin/lint.php"
+                ],
+                "cs:check": [
+                    "@php vendor/bin/php-cs-fixer fix --config=.php-cs-fixer.dist.php --dry-run --diff"
+                ],
+                "cs:fix": [
+                    "@php vendor/bin/php-cs-fixer fix --config=.php-cs-fixer.dist.php"
+                ],
+                "analyse": [
+                    "@php vendor/bin/phpstan analyse --configuration=phpstan.neon.dist --no-progress --memory-limit=512M"
+                ],
                 "test": [
                     "@php vendor/bin/phpunit --configuration=phpunit.xml"
+                ],
+                "check": [
+                    "@validate:package",
+                    "@autoload:check",
+                    "@platform:check",
+                    "@lint",
+                    "@cs:check",
+                    "@analyse",
+                    "@test"
                 ]
             },
             "license": [
