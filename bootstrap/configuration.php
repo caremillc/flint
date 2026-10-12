@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Configuration\ApplicationConfigurationValidator;
 use Flint\Configuration\Environment;
 use Flint\Configuration\PhpConfigurationLoader;
 
@@ -37,4 +38,8 @@ if ($environment->has('DATABASE_PORT')) {
         $environment->integer('DATABASE_PORT');
 }
 
-return $defaults->withOverrides($environmentOverrides);
+$configuration = $defaults->withOverrides($environmentOverrides);
+
+ApplicationConfigurationValidator::validate($configuration);
+
+return $configuration;
