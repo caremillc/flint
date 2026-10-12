@@ -14,8 +14,8 @@ use Throwable;
 
 final readonly class ExceptionMiddleware implements Middleware
 {
-    /**
-     * @param Closure(Throwable): void $report
+     /**
+     * @param Closure(Throwable, Request): void $report
      */
     public function __construct(
         private Closure $report,
@@ -28,7 +28,7 @@ final readonly class ExceptionMiddleware implements Middleware
         try {
             return $next->handle($request);
         } catch (Throwable $exception) {
-            ($this->report)($exception);
+            ($this->report)($exception, $request);
 
             return ResponseFactory::text('Internal server error', 500);
         }

@@ -42,7 +42,8 @@ $request = new Request();
 $reported = [];
 
 $exceptions = new ExceptionMiddleware(
-    static function (Throwable $exception) use (&$reported): void {
+    // static function (Throwable $exception) use (&$reported): void {
+    static function (Throwable $exception, Request $request) use (&$reported): void {
         $reported[] = $exception;
     },
 );
@@ -148,7 +149,8 @@ middlewareCheck(
 $reportFailure = new RuntimeException('Reporter failed.');
 
 $brokenReporter = new ExceptionMiddleware(
-    static function (Throwable $exception) use ($reportFailure): void {
+    // static function (Throwable $exception) use ($reportFailure): void {
+    static function (Throwable $exception, Request $request) use ($reportFailure): void {
         throw $reportFailure;
     },
 );

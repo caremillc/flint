@@ -143,6 +143,10 @@ check_response() {
     tr -d '\r' <"$temporary_dir/headers" \
         >"$temporary_dir/normalized-headers"
 
+    grep -Eq '^[Xx]-[Rr][Ee][Qq][Uu][Ee][Ss][Tt]-[Ii][Dd]: [0-9a-f]{32}$' \
+        "$temporary_dir/normalized-headers" \
+        || fail "$method $path: missing or invalid request ID."
+
     grep -Eiq '^x-content-type-options: nosniff$' \
         "$temporary_dir/normalized-headers" \
         || fail "$method $path: missing nosniff response header."

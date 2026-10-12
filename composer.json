@@ -32,6 +32,7 @@
         "test:http-bootstrap": "@php tests/http-bootstrap.php",
         "test:http-application": "bash bin/application-http-smoke.sh",
         "test:http-middleware": "@php tests/http-middleware.php",
+        "test:request-id": "@php tests/request-id.php",
         "check": [
             "@composer validate --strict",
             "@composer dump-autoload --optimize --strict-psr --strict-ambiguous",
@@ -42,7 +43,8 @@
             "@test:configuration",
             "@test:configuration-validation",
             "@test:http-bootstrap",
-            "@test:http-middleware"
+            "@test:http-middleware",
+            "@test:request-id"
         ],
         "check:framework": "@composer --working-dir=framework check",
         "check:all": [
