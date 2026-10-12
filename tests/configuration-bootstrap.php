@@ -130,36 +130,89 @@ try {
     );
 
     // Invalid input must fail startup instead of using a default.
-    $setEnvironment('APP_DEBUG=invalid');
+    $invalidCases = [
+        'invalid boolean' => [
+            'APP_DEBUG=invalid',
+            'Environment variable "APP_DEBUG" is not a valid boolean.',
+        ],
+        'empty application name' => [
+            'APP_NAME=',
+            'Configuration key "app.name" must not be blank.',
+        ],
+        'blank application name' => [
+            'APP_NAME=   ',
+            'Configuration key "app.name" must not be blank.',
+        ],
+        'zero database port' => [
+            'DATABASE_PORT=0',
+            'Configuration key "database.port" must be between 1 and 65535.',
+        ],
+        'database port above maximum' => [
+            'DATABASE_PORT=65536',
+            'Configuration key "database.port" must be between 1 and 65535.',
+        ],
+        'non-integer database port' => [
+            'DATABASE_PORT=3306.5',
+            'Environment variable "DATABASE_PORT" is not a valid integer.',
+        ],
+    ];
 
-    $rejected = false;
+    foreach ($invalidCases as $label => [$assignment, $expectedMessage]) {
+        // Start each case with a known valid environment.
+        $setEnvironment('APP_NAME=Recovery application');
+        $setEnvironment('APP_DEBUG=false');
+        $setEnvironment('DATABASE_PORT=3306');
 
-    try {
-        $boot();
-    } catch (ConfigurationException $exception) {
-        $rejected = true;
+        $setEnvironment($assignment);
+
+        $rejected = false;
+
+        try {
+            $boot();
+        } catch (ConfigurationException $exception) {
+            $rejected = true;
+
+            $check(
+                $exception->getMessage() === $expectedMessage,
+                sprintf(
+                    'Unexpected startup diagnostic for case "%s".',
+                    $label,
+                ),
+            );
+        }
 
         $check(
-            $exception->getMessage()
-                === 'Environment variable "APP_DEBUG" is not a valid boolean.',
-            'Startup must report the invalid environment variable.',
+            $rejected,
+            sprintf(
+                'Startup must reject case "%s".',
+                $label,
+            ),
+        );
+
+        // Verify recovery after each failure.
+        $setEnvironment('APP_NAME=Recovery application');
+        $setEnvironment('APP_DEBUG=false');
+        $setEnvironment('DATABASE_PORT=3306');
+
+        $recovered = $boot();
+        $recoveredConfiguration = $configurationOf($recovered);
+
+        $check(
+            $recoveredConfiguration->string('app.name')
+                === 'Recovery application',
+            'Recovery must load the corrected application name.',
+        );
+        $check(
+            $recoveredConfiguration->boolean('app.debug') === false,
+            'Recovery must load the corrected debug setting.',
+        );
+        $check(
+            $recoveredConfiguration->integer('database.port') === 3306,
+            'Recovery must load the corrected database port.',
         );
     }
 
-    $check(
-        $rejected,
-        'Invalid environment input must prevent successful startup.',
-    );
 
-    // A failed bootstrap must not prevent a later valid bootstrap.
-    $setEnvironment('APP_DEBUG=false');
-
-    $recovered = $boot();
-
-    $check(
-        $configurationOf($recovered)->boolean('app.debug') === false,
-        'A new bootstrap must succeed after correcting the environment.',
-    );
 } finally {
     foreach ($original as $name => $value) {
         $setEnvironment(
@@ -168,5 +221,5 @@ try {
     }
 }
 
-echo 'PASS: Application configuration isolation, startup rejection, and recovery.'
+echo 'PASS: Application configuration isolation and 6 startup rejection/recovery cases.'
     . PHP_EOL;
