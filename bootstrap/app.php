@@ -7,3 +7,4 @@ use Flint\Foundation\Application;
 require_once dirname(__DIR__) . '/vendor/autoload.php';
 
 return new Application(dirname(__DIR__));
+
