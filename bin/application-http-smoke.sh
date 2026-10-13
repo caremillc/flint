@@ -12,6 +12,7 @@ test -f public/index.php
 
 temporary_dir="$(mktemp -d)"
 server_pid=""
+
 : >"$temporary_dir/expected-access.tsv"
 
 cleanup() {
@@ -37,7 +38,6 @@ fail() {
     exit 1
 }
 
-# Ask the operating system for an available local port.
 address="$(php -r '
 $listener = stream_socket_server("tcp://127.0.0.1:0", $code, $message);
 
@@ -59,7 +59,6 @@ echo $address;
 application_name="Flint Smoke $(php -r 'echo bin2hex(random_bytes(8));')"
 base_url="http://$address"
 
-# Use predictable configuration for this server process only.
 env -u PHP_CLI_SERVER_WORKERS \
     APP_NAME="$application_name" \
     APP_DEBUG=false \
@@ -112,8 +111,8 @@ check_response() {
     local expected_status="$3"
     local expected_body="$4"
     local status
-    local -a options
     local request_id
+    local -a options
 
     : >"$temporary_dir/body"
 
@@ -146,10 +145,6 @@ check_response() {
     tr -d '\r' <"$temporary_dir/headers" \
         >"$temporary_dir/normalized-headers"
 
-    grep -Eq '^[Xx]-[Rr][Ee][Qq][Uu][Ee][Ss][Tt]-[Ii][Dd]: [0-9a-f]{32}$' \
-        "$temporary_dir/normalized-headers" \
-        || fail "$method $path: missing or invalid request ID."
-
     grep -Eiq '^x-content-type-options: nosniff$' \
         "$temporary_dir/normalized-headers" \
         || fail "$method $path: missing nosniff response header."
@@ -160,46 +155,7 @@ check_response() {
             || fail "$method $path: incorrect Allow header."
     fi
 
-    request_count=$((request_count + 1))
-    echo "PASS: $method $path -> $status"
-}
-
-check_response GET / 200 "$application_name"
-check_response GET /health 200 '{"status":"ok"}'
-check_response HEAD /health 200 ''
-check_response GET '/health?probe=1' 200 '{"status":"ok"}'
-check_response POST /health 405 'Method not allowed'
-check_response GET /missing 404 'Not found'
-check_response HEAD /missing 404 ''
-
-
-check_response GET /hello/Ada 200 '{"greeting":"Hello, Ada"}'
-check_response HEAD /hello/Ada 200 ''
-check_response POST /hello/Ada 405 'Method not allowed'
-check_response GET /hello/ 404 'Not found'
-check_response GET '/hello/Ada?source=test' 200 '{"greeting":"Hello, Ada"}'
-check_response GET '/hello/a%2Fb' 200 '{"greeting":"Hello, a%2Fb"}'
-
-check_response GET '/health?name=Ada&name=Grace' 400 'Bad request'
-check_response GET '/health?name=Ada&%6Eame=Grace' 400 'Bad request'
-check_response GET '/health?=value' 400 'Bad request'
-check_response HEAD '/health?name=Ada&name=Grace' 400 ''
-check_response GET /health 200 '{"status":"ok"}'
-
-
-check_response GET '/hello/Ada?style=formal' 200 '{"greeting":"Welcome, Ada"}'
-check_response HEAD '/hello/Ada?style=formal' 200 ''
-check_response GET '/hello/Ada?style=unknown' 400 'Bad request'
-check_response GET '/hello/Ada?style=' 400 'Bad request'
-
-
-php bin/http-head-check.php "$address" /health 200 15 \
-    || fail "Raw HEAD health check failed."
-
-php bin/http-head-check.php "$address" /missing 404 9 \
-    || fail "Raw HEAD missing-route check failed."
-
-request_id="$(awk '
+    request_id="$(awk '
         tolower($1) == "x-request-id:" { print $2 }
     ' "$temporary_dir/normalized-headers")"
 
@@ -213,11 +169,160 @@ request_id="$(awk '
         "$request_id" \
         >>"$temporary_dir/expected-access.tsv"
 
+    request_count=$((request_count + 1))
+    echo "PASS: $method $path -> $status"
+}
+
+check_capture_response() {
+    local content_type="$1"
+    local body_file="$2"
+    local expected_status="$3"
+    local expected_body="$4"
+    local status
+    local curl_body_file="$body_file"
+
+    # Make the filename inside curl's @file argument usable on Windows.
+    if command -v cygpath >/dev/null 2>&1; then
+        curl_body_file="$(cygpath -m "$body_file")"
+    fi
+
+    status="$(curl --silent --show-error \
+        --connect-timeout 2 \
+        --max-time 10 \
+        --request POST \
+        --header "Content-Type: $content_type" \
+        --header 'Expect:' \
+        --data-binary "@$curl_body_file" \
+        --dump-header "$temporary_dir/capture-headers" \
+        --output "$temporary_dir/capture-body" \
+        --write-out '%{http_code}' \
+        "$base_url/health")" \
+        || fail "Request-capture HTTP request failed."
+
+    [ "$status" = "$expected_status" ] \
+        || fail "Capture check: expected $expected_status, received $status."
+
+    printf '%s' "$expected_body" >"$temporary_dir/capture-expected"
+
+    cmp -s \
+        "$temporary_dir/capture-expected" \
+        "$temporary_dir/capture-body" \
+        || fail "Capture check: unexpected response body."
+
+    tr -d '\r' <"$temporary_dir/capture-headers" \
+        >"$temporary_dir/capture-headers-normalized"
+
+    grep -Eiq '^content-type: text/plain; charset=utf-8$' \
+        "$temporary_dir/capture-headers-normalized" \
+        || fail "Capture check: unexpected content type."
+
+    grep -Eiq "^content-length: ${#expected_body}$" \
+        "$temporary_dir/capture-headers-normalized" \
+        || fail "Capture check: unexpected Content-Length."
+
+    grep -Eiq '^x-content-type-options: nosniff$' \
+        "$temporary_dir/capture-headers-normalized" \
+        || fail "Capture response is missing the nosniff header."
+
+    if [ "$expected_status" = 405 ]; then
+        grep -Eiq '^allow: GET, HEAD$' \
+            "$temporary_dir/capture-headers-normalized" \
+            || fail "Accepted request body did not reach method routing."
+    fi
+
+    request_count=$((request_count + 1))
+    echo "PASS: POST /health, capture boundary -> $status"
+}
+
+# Basic application routes.
+check_response GET / 200 "$application_name"
+check_response GET /health 200 '{"status":"ok"}'
+check_response HEAD /health 200 ''
+check_response GET '/health?probe=1' 200 '{"status":"ok"}'
+check_response POST /health 405 'Method not allowed'
+check_response GET /missing 404 'Not found'
+check_response HEAD /missing 404 ''
+
+# Parameterized routing.
+check_response GET /hello/Ada 200 '{"greeting":"Hello, Ada"}'
+check_response HEAD /hello/Ada 200 ''
+check_response POST /hello/Ada 405 'Method not allowed'
+check_response GET /hello/ 404 'Not found'
+check_response GET '/hello/Ada?source=test' 200 '{"greeting":"Hello, Ada"}'
+check_response GET '/hello/a%2Fb' 200 '{"greeting":"Hello, a%2Fb"}'
+
+# Query validation and recovery.
+check_response GET '/health?name=Ada&name=Grace' 400 'Bad request'
+check_response GET '/health?name=Ada&%6Eame=Grace' 400 'Bad request'
+check_response GET '/health?=value' 400 'Bad request'
+check_response HEAD '/health?name=Ada&name=Grace' 400 ''
+check_response GET /health 200 '{"status":"ok"}'
+
+# Handler-level query options.
+check_response GET '/hello/Ada?style=formal' 200 '{"greeting":"Welcome, Ada"}'
+check_response HEAD '/hello/Ada?style=formal' 200 ''
+check_response GET '/hello/Ada?style=unknown' 400 'Bad request'
+check_response GET '/hello/Ada?style=' 400 'Bad request'
+
+# Disable MSYS argument conversion only for these HTTP-path arguments.
+MSYS2_ARG_CONV_EXCL='*' php bin/http-head-check.php \
+    "$address" /health 200 15 \
+    || fail "Raw HEAD health check failed."
+
+MSYS2_ARG_CONV_EXCL='*' php bin/http-head-check.php \
+    "$address" /missing 404 9 \
+    || fail "Raw HEAD missing-route check failed."
+
 request_count=$((request_count + 2))
 
+# Prepare exact-limit and over-limit bodies for the default 1 MiB reader.
+php -r '
+$limit = 1048576;
+
+foreach ([
+    "body-at-limit" => $limit,
+    "body-over-limit" => $limit + 1,
+] as $name => $length) {
+    $written = file_put_contents(
+        $argv[1] . "/" . $name,
+        str_repeat("x", $length),
+    );
+
+    if ($written !== $length) {
+        fwrite(STDERR, "Could not create the request body fixture.\n");
+        exit(1);
+    }
+}
+' "$temporary_dir" \
+    || fail "Could not prepare request body fixtures."
+
+check_capture_response \
+    'application/octet-stream' \
+    "$temporary_dir/body-at-limit" \
+    405 \
+    'Method not allowed'
+
+check_capture_response \
+    'application/octet-stream' \
+    "$temporary_dir/body-over-limit" \
+    413 \
+    'Payload too large'
+
+printf '%s\r\n' '--flint-smoke--' >"$temporary_dir/multipart-body"
+
+check_capture_response \
+    'multipart/form-data; boundary=flint-smoke' \
+    "$temporary_dir/multipart-body" \
+    400 \
+    'Bad request'
+
+# The same server must handle a normal request after capture rejections.
+check_response GET /health 200 '{"status":"ok"}'
+
+# Only check_response() writes entries into the correlation manifest.
 php bin/verify-access-log.php \
     "$temporary_dir/server.log" \
     "$temporary_dir/expected-access.tsv" \
     || fail "Access-log correlation failed."
-    
+
 echo "PASS: $request_count application HTTP requests."

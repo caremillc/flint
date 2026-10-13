@@ -9,6 +9,7 @@ command -v php >/dev/null
 command -v curl >/dev/null
 
 test -f public/index.php
+test -f bin/http-head-check.php
 
 temporary_dir="$(mktemp -d)"
 server_pid=""
@@ -48,6 +49,7 @@ $address = stream_socket_get_name($listener, false);
 fclose($listener);
 
 if ($address === false) {
+    fwrite(STDERR, "Could not determine the test address.\n");
     exit(1);
 }
 
@@ -56,6 +58,7 @@ echo $address;
 
 base_url="http://$address"
 
+# Invalid configuration is intentional and applies only to this server.
 env -u PHP_CLI_SERVER_WORKERS \
     APP_NAME='Flint Failure Smoke' \
     APP_DEBUG=false \
@@ -102,6 +105,7 @@ if [ "$ready" != true ]; then
     fail "Application server did not become reachable."
 fi
 
+# Verify the generic GET error response.
 status="$(curl --silent --show-error \
     --connect-timeout 2 \
     --max-time 5 \
@@ -133,33 +137,14 @@ grep -Eiq '^x-content-type-options: nosniff$' \
     "$temporary_dir/get-headers-normalized" \
     || fail "Bootstrap failure response is missing the nosniff header."
 
-
 echo 'PASS: Invalid configuration, GET /health -> generic 500'
 
-status="$(curl --silent --show-error \
-    --connect-timeout 2 \
-    --max-time 5 \
-    --head \
-    --dump-header "$temporary_dir/head-headers" \
-    --output /dev/null \
-    --write-out '%{http_code}' \
-    "$base_url/health")" \
-    || fail "HEAD request failed."
-
-[ "$status" = 500 ] || fail "HEAD must return 500."
-
-tr -d '\r' <"$temporary_dir/head-headers" \
-    >"$temporary_dir/head-headers-normalized"
-
-grep -Eiq '^content-length: 21$' \
-    "$temporary_dir/head-headers-normalized" \
-    || fail "HEAD must preserve the representation length."
-
-php bin/http-head-check.php "$address" /health 500 21 \
+# Verify HEAD status, representation length, and zero body bytes.
+MSYS2_ARG_CONV_EXCL='*' php bin/http-head-check.php \
+    "$address" /health 500 21 \
     || fail "Raw HEAD bootstrap-failure check failed."
 
-
-
+# Verify structured logs for readiness, GET, and HEAD requests.
 php -r '
 $lines = file($argv[1], FILE_IGNORE_NEW_LINES);
 
@@ -209,105 +194,5 @@ if ($matched < 3) {
 echo "PASS: Structured entry-point failure records.\n";
 ' "$temporary_dir/server.log" \
     || fail "Structured logging assertions failed."
-
-
-check_capture_response() {
-    local content_type="$1"
-    local body_file="$2"
-    local expected_status="$3"
-    local expected_body="$4"
-    local status
-
-    status="$(curl --silent --show-error \
-        --connect-timeout 2 \
-        --max-time 10 \
-        --request POST \
-        --header "Content-Type: $content_type" \
-        --header 'Expect:' \
-        --data-binary "@$body_file" \
-        --dump-header "$temporary_dir/capture-headers" \
-        --output "$temporary_dir/capture-body" \
-        --write-out '%{http_code}' \
-        "$base_url/health")" \
-        || fail "Request-capture HTTP request failed."
-
-    [ "$status" = "$expected_status" ] \
-        || fail "Capture check: expected $expected_status, received $status."
-
-    printf '%s' "$expected_body" >"$temporary_dir/capture-expected"
-
-    cmp -s "$temporary_dir/capture-expected" \
-        "$temporary_dir/capture-body" \
-        || fail "Capture check: unexpected response body."
-
-    tr -d '\r' <"$temporary_dir/capture-headers" \
-        >"$temporary_dir/capture-headers-normalized"
-
-    grep -Eiq '^content-type: text/plain; charset=utf-8$' \
-        "$temporary_dir/capture-headers-normalized" \
-        || fail "Capture check: unexpected content type."
-
-    grep -Eiq "^content-length: ${#expected_body}$" \
-        "$temporary_dir/capture-headers-normalized" \
-        || fail "Capture check: unexpected Content-Length."
-
-
-        
-    if [ "$expected_status" = 405 ]; then
-        grep -Eiq '^allow: GET, HEAD$' \
-            "$temporary_dir/capture-headers-normalized" \
-            || fail "Accepted request body did not reach method routing."
-    fi
-
-    request_count=$((request_count + 1))
-    echo "PASS: POST /health, capture boundary -> $status"
-}
-
-# The production RequestBodyReader currently defaults to 1 MiB.
-php -r '
-$limit = 1048576;
-
-foreach ([
-    "body-at-limit" => $limit,
-    "body-over-limit" => $limit + 1,
-] as $name => $length) {
-    $written = file_put_contents(
-        $argv[1] . "/" . $name,
-        str_repeat("x", $length),
-    );
-
-    if ($written !== $length) {
-        fwrite(STDERR, "Could not create the request body fixture.\n");
-        exit(1);
-    }
-}
-' "$temporary_dir" \
-    || fail "Could not prepare request body fixtures."
-
-# Capture succeeds, then the GET-only route rejects POST.
-check_capture_response \
-    'application/octet-stream' \
-    "$temporary_dir/body-at-limit" \
-    405 \
-    'Method not allowed'
-
-# Capture rejects the request before routing.
-check_capture_response \
-    'application/octet-stream' \
-    "$temporary_dir/body-over-limit" \
-    413 \
-    'Payload too large'
-
-printf '%s\r\n' '--flint-smoke--' >"$temporary_dir/multipart-body"
-
-check_capture_response \
-    'multipart/form-data; boundary=flint-smoke' \
-    "$temporary_dir/multipart-body" \
-    400 \
-    'Bad request'
-
-# Verify another request succeeds on the same server.
-check_response GET /health 200 '{"status":"ok"}'
-
 
 echo 'PASS: Application bootstrap failure HTTP checks.'
