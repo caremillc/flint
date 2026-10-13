@@ -57,7 +57,4 @@ try {
 
 $emitter = new ResponseEmitter(new PhpResponseOutput());
 
-$emitter->emit(
-    $response,
-    headRequest: $headRequest,
-);
+$emitter->emit($response,headRequest: $headRequest,);
