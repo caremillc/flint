@@ -38,6 +38,7 @@
         "cs:check": "@php vendor/bin/php-cs-fixer fix --config=.php-cs-fixer.dist.php --dry-run --diff",
         "test:response-policy": "@php tests/response-policy.php",
         "test:access-logging": "@php tests/access-logging.php",
+        "test:query-middleware": "@php tests/query-middleware.php",
         "check": [
             "@composer validate --strict",
             "@composer dump-autoload --optimize --strict-psr --strict-ambiguous",
@@ -52,7 +53,8 @@
             "@test:request-id",
             "@test:exception-reporting",
             "@test:response-policy",
-            "@test:access-logging"
+            "@test:access-logging",
+            "@test:query-middleware"
         ],
         "check:framework": "@composer --working-dir=framework check",
         "check:all": [

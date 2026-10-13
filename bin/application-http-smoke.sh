@@ -180,6 +180,11 @@ check_response GET /hello/ 404 'Not found'
 check_response GET '/hello/Ada?source=test' 200 '{"greeting":"Hello, Ada"}'
 check_response GET '/hello/a%2Fb' 200 '{"greeting":"Hello, a%2Fb"}'
 
+check_response GET '/health?name=Ada&name=Grace' 400 'Bad request'
+check_response GET '/health?name=Ada&%6Eame=Grace' 400 'Bad request'
+check_response GET '/health?=value' 400 'Bad request'
+check_response HEAD '/health?name=Ada&name=Grace' 400 ''
+check_response GET /health 200 '{"status":"ok"}'
 
 php bin/http-head-check.php "$address" /health 200 15 \
     || fail "Raw HEAD health check failed."
