@@ -8,7 +8,8 @@ use Flint\Http\Response;
 use Flint\Http\ResponseFactory;
 use Flint\Routing\Router;
 
-return static function (Router $router,Configuration $configuration,): void {
+return static function (Router $router,Configuration $configuration,): void 
+{
     $router->add(
         'GET',
         '/health',
