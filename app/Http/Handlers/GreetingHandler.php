@@ -27,8 +27,36 @@ final class GreetingHandler implements RequestHandler
             );
         }
 
+        $query = $request->attribute('request.query');
+
+        if (! is_array($query)) {
+            throw new LogicException(
+                'GreetingHandler requires decoded query parameters.',
+            );
+        }
+
+        $style = array_key_exists('style', $query)
+            ? $query['style']
+            : 'friendly';
+
+        if (! is_string($style)) {
+            throw new LogicException(
+                'Decoded query values must be strings.',
+            );
+        }
+
+        $prefix = match ($style) {
+            'friendly' => 'Hello',
+            'formal' => 'Welcome',
+            default => null,
+        };
+
+        if ($prefix === null) {
+            return ResponseFactory::text('Bad request', 400);
+        }
+
         return ResponseFactory::json([
-            'greeting' => 'Hello, ' . $parameters['name'],
+            'greeting' => $prefix . ', ' . $parameters['name'],
         ]);
     }
 }

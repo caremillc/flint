@@ -186,6 +186,13 @@ check_response GET '/health?=value' 400 'Bad request'
 check_response HEAD '/health?name=Ada&name=Grace' 400 ''
 check_response GET /health 200 '{"status":"ok"}'
 
+
+check_response GET '/hello/Ada?style=formal' 200 '{"greeting":"Welcome, Ada"}'
+check_response HEAD '/hello/Ada?style=formal' 200 ''
+check_response GET '/hello/Ada?style=unknown' 400 'Bad request'
+check_response GET '/hello/Ada?style=' 400 'Bad request'
+
+
 php bin/http-head-check.php "$address" /health 200 15 \
     || fail "Raw HEAD health check failed."
 

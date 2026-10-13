@@ -39,6 +39,7 @@
         "test:response-policy": "@php tests/response-policy.php",
         "test:access-logging": "@php tests/access-logging.php",
         "test:query-middleware": "@php tests/query-middleware.php",
+        "test:greeting": "@php tests/greeting-handler.php",
         "check": [
             "@composer validate --strict",
             "@composer dump-autoload --optimize --strict-psr --strict-ambiguous",
@@ -54,7 +55,8 @@
             "@test:exception-reporting",
             "@test:response-policy",
             "@test:access-logging",
-            "@test:query-middleware"
+            "@test:query-middleware",
+            "@test:greeting"
         ],
         "check:framework": "@composer --working-dir=framework check",
         "check:all": [
