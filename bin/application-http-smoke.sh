@@ -12,6 +12,7 @@ test -f public/index.php
 
 temporary_dir="$(mktemp -d)"
 server_pid=""
+: >"$temporary_dir/expected-access.tsv"
 
 cleanup() {
     if [ -n "$server_pid" ]; then
@@ -66,6 +67,7 @@ env -u PHP_CLI_SERVER_WORKERS \
     php \
         -d display_errors=0 \
         -d log_errors=1 \
+        -d error_log= \
         -d output_buffering=0 \
         -d output_handler= \
         -d zlib.output_compression=0 \
@@ -111,6 +113,7 @@ check_response() {
     local expected_body="$4"
     local status
     local -a options
+    local request_id
 
     : >"$temporary_dir/body"
 
@@ -175,6 +178,25 @@ php bin/http-head-check.php "$address" /health 200 15 \
 php bin/http-head-check.php "$address" /missing 404 9 \
     || fail "Raw HEAD missing-route check failed."
 
+request_id="$(awk '
+        tolower($1) == "x-request-id:" { print $2 }
+    ' "$temporary_dir/normalized-headers")"
+
+    if [[ ! "$request_id" =~ ^[0-9a-f]{32}$ ]]; then
+        fail "$method $path: expected exactly one valid request ID."
+    fi
+
+    printf '%s\t%s\t%s\n' \
+        "$method" \
+        "$status" \
+        "$request_id" \
+        >>"$temporary_dir/expected-access.tsv"
+
 request_count=$((request_count + 2))
 
+php bin/verify-access-log.php \
+    "$temporary_dir/server.log" \
+    "$temporary_dir/expected-access.tsv" \
+    || fail "Access-log correlation failed."
+    
 echo "PASS: $request_count application HTTP requests."
