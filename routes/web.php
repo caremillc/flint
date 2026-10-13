@@ -19,6 +19,7 @@ return static function (
         static fn (Request $request): Response => ResponseFactory::json([
             'status' => 'ok',
         ]),
+        name: 'health',
     );
 
     $router->add(
@@ -27,6 +28,7 @@ return static function (
         static fn (Request $request): Response => ResponseFactory::text(
             $configuration->string('app.name'),
         ),
+        name: 'home',
     );
 
     $greeting = new GreetingHandler();
@@ -35,5 +37,6 @@ return static function (
         'GET',
         '/hello/{name}',
         $greeting->handle(...),
+        name: 'greeting',
     );
 };
