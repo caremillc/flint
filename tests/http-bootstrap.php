@@ -108,6 +108,53 @@ httpBootstrapCheck(
     'Repeated requests must receive exactly one middleware header value.',
 );
 
+$greeting = $first->handle(
+    new Request(target: '/hello/Ada?source=test'),
+);
+
+httpBootstrapCheck(
+    $greeting->status() === 200,
+    'The parameterized greeting route must succeed.',
+);
+httpBootstrapCheck(
+    $greeting->body() === '{"greeting":"Hello, Ada"}',
+    'The handler must receive the captured name without the query string.',
+);
+httpBootstrapCheck(
+    $greeting->headers()->get('Content-Type') === ['application/json'],
+    'The greeting response must use JSON.',
+);
+httpBootstrapCheck(
+    $greeting->headers()->get('X-Content-Type-Options') === ['nosniff'],
+    'Parameterized routes must retain response middleware.',
+);
+
+$greetingIds = $greeting->headers()->get('X-Request-ID');
+
+httpBootstrapCheck(
+    count($greetingIds) === 1
+        && preg_match('/\A[0-9a-f]{32}\z/', $greetingIds[0]) === 1,
+    'Parameterized routes must retain request-ID middleware.',
+);
+
+$encodedGreeting = $first->handle(
+    new Request(target: '/hello/a%2Fb'),
+);
+
+httpBootstrapCheck(
+    $encodedGreeting->body() === '{"greeting":"Hello, a%2Fb"}',
+    'Route parameters must retain their percent encoding.',
+);
+
+$missingName = $first->handle(
+    new Request(target: '/hello/'),
+);
+
+httpBootstrapCheck(
+    $missingName->status() === 404,
+    'An empty name must not match the route.',
+);
+
 echo 'PASS: HTTP bootstrap, silent startup, independent handlers, and routes.'
     . PHP_EOL;
     
