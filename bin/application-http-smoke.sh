@@ -169,4 +169,12 @@ check_response POST /health 405 'Method not allowed'
 check_response GET /missing 404 'Not found'
 check_response HEAD /missing 404 ''
 
+php bin/http-head-check.php "$address" /health 200 15 \
+    || fail "Raw HEAD health check failed."
+
+php bin/http-head-check.php "$address" /missing 404 9 \
+    || fail "Raw HEAD missing-route check failed."
+
+request_count=$((request_count + 2))
+
 echo "PASS: $request_count application HTTP requests."

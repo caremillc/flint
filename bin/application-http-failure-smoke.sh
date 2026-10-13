@@ -150,7 +150,10 @@ grep -Eiq '^content-length: 21$' \
     "$temporary_dir/head-headers-normalized" \
     || fail "HEAD must preserve the representation length."
 
-echo 'PASS: Invalid configuration, HEAD /health -> 500'
+php bin/http-head-check.php "$address" /health 500 21 \
+    || fail "Raw HEAD bootstrap-failure check failed."
+
+
 
 php -r '
 $lines = file($argv[1], FILE_IGNORE_NEW_LINES);
