@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Middleware;
 
+use App\Http\ResponsePolicy;
 use Flint\Http\Middleware;
 use Flint\Http\Request;
 use Flint\Http\RequestHandler;
@@ -15,13 +16,8 @@ final class ResponseHeadersMiddleware implements Middleware
         Request $request,
         RequestHandler $next,
     ): Response {
-        $response = $next->handle($request);
-
-        return $response->withHeaders(
-            $response->headers()->with(
-                'X-Content-Type-Options',
-                'nosniff',
-            ),
+        return ResponsePolicy::apply(
+            $next->handle($request),
         );
     }
 }

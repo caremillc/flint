@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Http\ResponsePolicy;
 use App\Logging\ExceptionReporter;
 use Flint\Http\Exception\RequestBodyTooLargeException;
 use Flint\Http\Output\PhpResponseOutput;
@@ -54,6 +55,8 @@ try {
 
     $response = ResponseFactory::text('Internal server error', 500);
 }
+
+$response = ResponsePolicy::apply($response);
 
 $emitter = new ResponseEmitter(new PhpResponseOutput());
 

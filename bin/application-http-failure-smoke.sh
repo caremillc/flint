@@ -129,6 +129,11 @@ grep -Eiq '^content-length: 21$' \
     "$temporary_dir/get-headers-normalized" \
     || fail "GET returned an unexpected Content-Length."
 
+grep -Eiq '^x-content-type-options: nosniff$' \
+    "$temporary_dir/get-headers-normalized" \
+    || fail "Bootstrap failure response is missing the nosniff header."
+
+
 echo 'PASS: Invalid configuration, GET /health -> generic 500'
 
 status="$(curl --silent --show-error \
@@ -246,6 +251,8 @@ check_capture_response() {
         "$temporary_dir/capture-headers-normalized" \
         || fail "Capture check: unexpected Content-Length."
 
+
+        
     if [ "$expected_status" = 405 ]; then
         grep -Eiq '^allow: GET, HEAD$' \
             "$temporary_dir/capture-headers-normalized" \
