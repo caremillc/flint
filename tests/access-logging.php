@@ -74,10 +74,15 @@ accessLogCheck(
         'event',
         'request_id',
         'method',
+        'route_name',
         'status',
         'duration_ms',
     ],
     'Access records must contain only the intended fields.',
+);
+accessLogCheck(
+    $record['route_name'] === null,
+    'A destination without routing must have a null route name.',
 );
 accessLogCheck(
     $record['event'] === 'http.request_completed'

@@ -105,17 +105,35 @@ try {
         $keys = array_keys($record);
         sort($keys);
 
-        $expectedKeys = [
+         $expectedKeys = [
             'duration_ms',
             'event',
             'method',
             'request_id',
+            'route_name',
             'status',
         ];
 
         if ($keys !== $expectedKeys) {
             throw new RuntimeException('The access record contains unexpected fields.');
         }
+        $routeName = $record['route_name'];
+
+        if (
+            $routeName !== null
+            && (
+                ! is_string($routeName)
+                || preg_match(
+                    '/\A[A-Za-z_][A-Za-z0-9_.-]*\z/',
+                    $routeName,
+                ) !== 1
+            )
+        ) {
+            throw new RuntimeException(
+                'Access-log route names must be valid names or null.',
+            );
+        }
+
     }
 
     echo sprintf(
