@@ -57,10 +57,8 @@ final class JsonGreetingHandler implements RequestHandler
             );
         }
 
-        $prefix = $input->style === 'formal' ? 'Welcome' : 'Hello';
-
         return ResponseFactory::json([
-            'greeting' => $prefix . ', ' . $input->name,
+            'greeting' => $input->style->greet($input->name),
         ]);
     }
 

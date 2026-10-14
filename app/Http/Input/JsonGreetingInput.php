@@ -4,13 +4,15 @@ declare(strict_types=1);
 
 namespace App\Http\Input;
 
+use App\Greeting\GreetingStyle;
+use LogicException;
 use stdClass;
 
 final readonly class JsonGreetingInput
 {
     private function __construct(
         public string $name,
-        public string $style,
+        public GreetingStyle $style,
     ) {
     }
 
@@ -20,9 +22,13 @@ final readonly class JsonGreetingInput
 
         $name = $fields['name'] ?? null;
 
-        $style = array_key_exists('style', $fields)
+        $styleValue = array_key_exists('style', $fields)
             ? $fields['style']
-            : 'friendly';
+            : GreetingStyle::Friendly->value;
+
+        $style = is_string($styleValue)
+            ? GreetingStyle::tryFrom($styleValue)
+            : null;
 
         $invalidFields = [];
 
@@ -34,10 +40,7 @@ final readonly class JsonGreetingInput
             $invalidFields[] = 'name';
         }
 
-        if (
-            !is_string($style)
-            || !in_array($style, ['friendly', 'formal'], true)
-        ) {
+        if ($style === null) {
             $invalidFields[] = 'style';
         }
 
@@ -51,10 +54,9 @@ final readonly class JsonGreetingInput
             throw new InvalidGreetingInput($invalidFields);
         }
 
-        // Explicit narrowing also protects the constructor's type contract.
-        if (!is_string($name) || !is_string($style)) {
-            throw new \LogicException(
-                'Validated greeting fields must be strings.',
+        if (!is_string($name) || $style === null) {
+            throw new LogicException(
+                'Validated greeting input has inconsistent types.',
             );
         }
 
