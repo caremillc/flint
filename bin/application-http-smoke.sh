@@ -190,6 +190,8 @@ check_json_response() {
     local content_type="${4-application/json}"
     local expected_media_type
     local actual_media_type
+    local expected_length
+    local actual_length
 
     check_response \
         POST \
@@ -214,8 +216,29 @@ check_json_response() {
 
     [ "$actual_media_type" = "$expected_media_type" ] \
         || fail "POST /hello: unexpected response media type."
-}
 
+    # wc -c counts bytes, including UTF-8 multibyte sequences.
+    expected_length="$(
+        printf '%s' "$expected_body" |
+            wc -c |
+            tr -d '[:space:]'
+    )"
+
+    actual_length="$(awk '
+        tolower($1) == "content-length:" {
+            sub(/^[^:]*:[ \t]*/, "")
+            print
+        }
+    ' "$temporary_dir/normalized-headers")"
+
+    [ "$actual_length" = "$expected_length" ] \
+        || fail "POST /hello: expected Content-Length $expected_length, received [$actual_length]."
+
+    if grep -Eiq '^transfer-encoding:' \
+        "$temporary_dir/normalized-headers"; then
+        fail "POST /hello: unexpected Transfer-Encoding."
+    fi
+}
 
 check_capture_response() {
     local content_type="$1"
