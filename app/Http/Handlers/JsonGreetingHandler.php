@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Handlers;
 
+use App\Http\Input\InvalidGreetingInput;
+use App\Http\Input\JsonGreetingInput;
 use Flint\Http\Exception\InvalidJsonException;
 use Flint\Http\JsonObjectDecoder;
 use Flint\Http\ProblemResponseFactory;
@@ -43,51 +45,22 @@ final class JsonGreetingHandler implements RequestHandler
             );
         }
 
-        $fields = get_object_vars($document);
-
-        $name = $fields['name'] ?? null;
-
-        $style = array_key_exists('style', $fields)
-            ? $fields['style']
-            : 'friendly';
-
-        $validName = is_string($name)
-            && trim($name) !== ''
-            && strlen($name) <= 100;
-
-        $validStyle = is_string($style)
-            && in_array($style, ['friendly', 'formal'], true);
-
-        $invalidFields = [];
-
-        if (!$validName) {
-            $invalidFields[] = 'name';
-        }
-
-        if (!$validStyle) {
-            $invalidFields[] = 'style';
-        }
-
-        foreach ($fields as $field => $_value) {
-            if ($field !== 'name' && $field !== 'style') {
-                $invalidFields[] = (string) $field;
-            }
-        }
-
-        if ($invalidFields !== []) {
+        try {
+            $input = JsonGreetingInput::fromObject($document);
+        } catch (InvalidGreetingInput $exception) {
             return ProblemResponseFactory::create(
                 422,
                 'Unprocessable Content',
                 extensions: [
-                    'invalid_fields' => $invalidFields,
+                    'invalid_fields' => $exception->fields(),
                 ],
             );
         }
 
-        $prefix = $style === 'formal' ? 'Welcome' : 'Hello';
+        $prefix = $input->style === 'formal' ? 'Welcome' : 'Hello';
 
         return ResponseFactory::json([
-            'greeting' => $prefix . ', ' . $name,
+            'greeting' => $prefix . ', ' . $input->name,
         ]);
     }
 
