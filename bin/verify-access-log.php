@@ -13,11 +13,15 @@ try {
     $expectedLines = file($argv[2], FILE_IGNORE_NEW_LINES);
 
     if ($logLines === false || $expectedLines === false) {
-        throw new RuntimeException('Could not read access-log verification files.');
+        throw new RuntimeException(
+            'Could not read access-log verification files.',
+        );
     }
 
     if ($expectedLines === []) {
-        throw new RuntimeException('No expected requests were recorded.');
+        throw new RuntimeException(
+            'No expected requests were recorded.',
+        );
     }
 
     $recordsById = [];
@@ -53,23 +57,46 @@ try {
     foreach ($expectedLines as $line) {
         $parts = explode("\t", $line);
 
-        if (count($parts) !== 3) {
-            throw new RuntimeException('An expected-request entry is malformed.');
+        if (count($parts) !== 4) {
+            throw new RuntimeException(
+                'An expected-request entry must contain method, status, ID, and route name.',
+            );
         }
 
-        [$method, $status, $id] = $parts;
+        [$method, $status, $id, $expectedRoute] = $parts;
 
         if (
-            preg_match('/\A[0-9a-f]{32}\z/', $id) !== 1
+            $method === ''
+            || preg_match('/\A[0-9a-f]{32}\z/', $id) !== 1
             || preg_match('/\A[2-5][0-9]{2}\z/', $status) !== 1
         ) {
-            throw new RuntimeException('An expected request has an invalid ID or status.');
+            throw new RuntimeException(
+                'An expected request has an invalid method, ID, or status.',
+            );
         }
+
+        if (
+            $expectedRoute !== '-'
+            && preg_match(
+                '/\A[A-Za-z_][A-Za-z0-9_.-]*\z/',
+                $expectedRoute,
+            ) !== 1
+        ) {
+            throw new RuntimeException(
+                'An expected request has an invalid route name.',
+            );
+        }
+
+        $expectedRouteName = $expectedRoute === '-'
+            ? null
+            : $expectedRoute;
 
         $key = 'id:' . $id;
 
         if (isset($seen[$key])) {
-            throw new RuntimeException('Different requests reused a request ID.');
+            throw new RuntimeException(
+                'Different requests reused a request ID.',
+            );
         }
 
         $seen[$key] = true;
@@ -85,27 +112,10 @@ try {
 
         $record = $matches[0];
 
-        if (
-            ($record['method'] ?? null) !== $method
-            || ($record['status'] ?? null) !== (int) $status
-        ) {
-            throw new RuntimeException('Access-log metadata differs from the HTTP result.');
-        }
-
-        $duration = $record['duration_ms'] ?? null;
-
-        if (
-            (! is_int($duration) && ! is_float($duration))
-            || ! is_finite((float) $duration)
-            || $duration < 0
-        ) {
-            throw new RuntimeException('Access-log duration must be finite and non-negative.');
-        }
-
         $keys = array_keys($record);
         sort($keys);
 
-         $expectedKeys = [
+        $expectedKeys = [
             'duration_ms',
             'event',
             'method',
@@ -115,8 +125,20 @@ try {
         ];
 
         if ($keys !== $expectedKeys) {
-            throw new RuntimeException('The access record contains unexpected fields.');
+            throw new RuntimeException(
+                'The access record contains missing or unexpected fields.',
+            );
         }
+
+        if (
+            $record['method'] !== $method
+            || $record['status'] !== (int) $status
+        ) {
+            throw new RuntimeException(
+                'Access-log metadata differs from the HTTP result.',
+            );
+        }
+
         $routeName = $record['route_name'];
 
         if (
@@ -134,10 +156,30 @@ try {
             );
         }
 
+        if ($routeName !== $expectedRouteName) {
+            throw new RuntimeException(sprintf(
+                'Request %s: expected route %s, received %s.',
+                $id,
+                $expectedRouteName ?? 'null',
+                $routeName ?? 'null',
+            ));
+        }
+
+        $duration = $record['duration_ms'];
+
+        if (
+            (! is_int($duration) && ! is_float($duration))
+            || ! is_finite((float) $duration)
+            || $duration < 0
+        ) {
+            throw new RuntimeException(
+                'Access-log duration must be finite and non-negative.',
+            );
+        }
     }
 
     echo sprintf(
-        'PASS: %d HTTP responses matched unique access-log records.',
+        'PASS: %d HTTP responses matched unique access-log records and expected route names.',
         count($expectedLines),
     ) . PHP_EOL;
 } catch (Throwable $exception) {

@@ -107,6 +107,69 @@ fi
 
 request_count=0
 
+expected_route_name() {
+    local method="$1"
+    local target="$2"
+    local expected_status="$3"
+    local path="${target%%\?*}"
+
+    # These fixture cases do not select a route handler.
+    case "$expected_status" in
+        404|405)
+            printf '%s' '-'
+            return
+            ;;
+    esac
+
+    # Query middleware rejects these cases before routing.
+    case "$target" in
+        '/health?name=Ada&name=Grace'|\
+        '/health?name=Ada&%6Eame=Grace'|\
+        '/health?=value')
+            printf '%s' '-'
+            return
+            ;;
+    esac
+
+    # Explicit expectations for this smoke suite's registered routes.
+    case "$method $path" in
+        'GET /')
+            printf '%s' 'home'
+            ;;
+        'GET /health'|'HEAD /health')
+            printf '%s' 'health'
+            ;;
+        'GET /hello/Ada'|\
+        'HEAD /hello/Ada'|\
+        'GET /hello/a%2Fb'|\
+        'GET /hello/Ada%20Lovelace')
+            printf '%s' 'greeting'
+            ;;
+        'POST /hello')
+            printf '%s' 'greeting.create'
+            ;;
+        'GET /api/v1/health'|'HEAD /api/v1/health')
+            printf '%s' 'api.v1.health'
+            ;;
+        'POST /api/v1/hello')
+            printf '%s' 'api.v1.greeting.create'
+            ;;
+        'GET /api/v1/hello/Ada'|\
+        'GET /api/v1/hello/Ada-Lovelace'|\
+        'HEAD /api/v1/hello/Ada-Lovelace')
+            printf '%s' 'api.v1.greeting.show'
+            ;;
+        'GET /links'|'HEAD /links')
+            printf '%s' 'links'
+            ;;
+        *)
+            printf 'Missing route expectation for %s %s\n' \
+                "$method" "$target" >&2
+            return 1
+            ;;
+    esac
+}
+
 check_response() {
     local method="$1"
     local path="$2"
@@ -117,6 +180,7 @@ check_response() {
     local status
     local request_id
     local -a options
+    local expected_route
 
     : >"$temporary_dir/body"
 
@@ -185,10 +249,15 @@ check_response() {
         fail "$method $path: expected exactly one valid request ID."
     fi
 
-    printf '%s\t%s\t%s\n' \
+   expected_route="$(
+        expected_route_name "$method" "$path" "$expected_status"
+    )" || fail "$method $path: missing route-log expectation."
+
+    printf '%s\t%s\t%s\t%s\n' \
         "$method" \
         "$status" \
         "$request_id" \
+        "$expected_route" \
         >>"$temporary_dir/expected-access.tsv"
 
     request_count=$((request_count + 1))
