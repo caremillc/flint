@@ -335,6 +335,16 @@ check_json_response \
     "$json_invalid_style" \
     '{"name":"Ada","style":"unknown"}'
 
+check_json_response \
+    422 \
+    "$json_invalid_fields" \
+    '{"name":123456789012345678901234567890}'
+
+check_json_response \
+    200 \
+    '{"greeting":"Hello, 123456789012345678901234567890"}' \
+    '{"name":"123456789012345678901234567890"}'
+    
 check_json_response 415 "$json_unsupported_media" \
     '{"name":"Ada"}' 'text/plain'
 

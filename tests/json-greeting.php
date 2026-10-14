@@ -36,6 +36,11 @@ $unsupportedMedia = [
 $successCases = [
     ['{"name":"Ada"}', 'Hello, Ada'],
     ['{"name":"Ada","style":"formal"}', 'Welcome, Ada'],
+    [
+        '{"name":"123456789012345678901234567890"}',
+        'Hello, 123456789012345678901234567890',
+    ],
+
 ];
 
 foreach ($successCases as [$body, $greeting]) {
@@ -109,6 +114,11 @@ $invalidFieldCases = [
         '{"name":42,"style":false,"extra":"private-value"}',
         ['name', 'style', 'extra'],
     ],
+    [
+        '{"name":123456789012345678901234567890}',
+        ['name'],
+    ],
+
 ];
 
 foreach ($invalidFieldCases as [$body, $invalidFields]) {

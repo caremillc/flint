@@ -36,7 +36,11 @@ final class JsonGreetingHandler implements RequestHandler
         }
 
         try {
-            $document = JsonObjectDecoder::decode($request->body());
+            // $document = JsonObjectDecoder::decode($request->body());
+            $document = JsonObjectDecoder::decode(
+                $request->body(),
+                bigIntegersAsStrings: false,
+            );
         } catch (InvalidJsonException) {
             return ProblemResponseFactory::create(
                 400,
