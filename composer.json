@@ -56,6 +56,8 @@
         "test:route-constraints": "@php tests/route-constraints.php",
         "routes": "@php bin/routes.php",
         "test:routes-command": "@php tests/routes-command.php",
+        "route:url": "@php bin/route-url.php",
+        "test:route-url-command": "@php tests/route-url-command.php",
         "check": [
             "@composer validate --strict",
             "@composer dump-autoload --optimize --strict-psr --strict-ambiguous",
@@ -81,7 +83,8 @@
             "@test:route-groups",
             "@test:container-middleware",
             "@test:route-constraints",
-            "@test:routes-command"
+            "@test:routes-command",
+            "@test:route-url-command"
         ],
         "check:framework": "@composer --working-dir=framework check",
         "check:all": [
