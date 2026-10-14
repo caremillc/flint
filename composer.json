@@ -41,6 +41,7 @@
         "test:query-middleware": "@php tests/query-middleware.php",
         "test:greeting": "@php tests/greeting-handler.php",
         "test:json-greeting": "@php tests/json-greeting.php",
+        "test:json-greeting-bootstrap": "@php tests/json-greeting-bootstrap.php",
         "check": [
             "@composer validate --strict",
             "@composer dump-autoload --optimize --strict-psr --strict-ambiguous",
@@ -58,7 +59,8 @@
             "@test:access-logging",
             "@test:query-middleware",
             "@test:greeting",
-            "@test:json-greeting"
+            "@test:json-greeting",
+            "@test:json-greeting-bootstrap"
         ],
         "check:framework": "@composer --working-dir=framework check",
         "check:all": [
