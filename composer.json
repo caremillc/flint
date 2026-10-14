@@ -35,7 +35,8 @@
         "test:request-id": "@php tests/request-id.php",
         "test:exception-reporting": "@php tests/exception-reporting.php",
         "test:http-failure": "bash bin/application-http-failure-smoke.sh",
-        "cs:check": "@php vendor/bin/php-cs-fixer fix --config=.php-cs-fixer.dist.php --dry-run --diff",
+        "cs:check": "@composer --working-dir=framework cs:check",
+        "cs:fix": "@composer --working-dir=framework cs:fix",
         "test:response-policy": "@php tests/response-policy.php",
         "test:access-logging": "@php tests/access-logging.php",
         "test:query-middleware": "@php tests/query-middleware.php",
@@ -44,6 +45,11 @@
         "test:json-greeting-bootstrap": "@php tests/json-greeting-bootstrap.php",
         "test:json-greeting-input": "@php tests/json-greeting-input.php",
         "analyse:application": "@php framework/vendor/bin/phpstan analyse --configuration=phpstan.application.neon.dist --no-progress --memory-limit=512M",
+        "analyse": [
+            "@composer --working-dir=framework analyse",
+            "@analyse:application"
+        ],
+        "test:framework": "@composer --working-dir=framework test",
         "check": [
             "@composer validate --strict",
             "@composer dump-autoload --optimize --strict-psr --strict-ambiguous",
