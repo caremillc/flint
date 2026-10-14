@@ -5,6 +5,10 @@ parameters:
 
     paths:
         - app
+        - bootstrap
+        - config
+        - routes
+        - public
 
     bootstrapFiles:
         - vendor/autoload.php
