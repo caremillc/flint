@@ -9,6 +9,7 @@ use App\Http\Handlers\JsonGreetingHandler;
 use App\Http\Middleware\NoStoreMiddleware;
 use Flint\Configuration\Configuration;
 use Flint\Container\Container;
+use Flint\Http\ContainerMiddleware;
 use Flint\Http\ContainerRequestHandler;
 use Flint\Routing\Router;
 
@@ -23,14 +24,17 @@ return static function (
         $container->instance(Configuration::class, $configuration);
     }
 
-    foreach ([
-        HomeHandler::class,
-        HealthHandler::class,
-        GreetingHandler::class,
-        JsonGreetingHandler::class,
-    ] as $handlerClass) {
-        if (!$container->has($handlerClass)) {
-            $container->autowire($handlerClass);
+    foreach (
+        [
+            HomeHandler::class,
+            HealthHandler::class,
+            GreetingHandler::class,
+            JsonGreetingHandler::class,
+            NoStoreMiddleware::class,
+        ] as $serviceClass
+    ) {
+        if (!$container->has($serviceClass)) {
+            $container->autowire($serviceClass);
         }
     }
 
@@ -60,15 +64,14 @@ return static function (
         '/hello',
         new ContainerRequestHandler($container, JsonGreetingHandler::class),
         'greeting.create',
-        new NoStoreMiddleware(),
+        new ContainerMiddleware($container, NoStoreMiddleware::class),
     );
 
     $api = $router->group(
         '/api',
         'api.',
-        new NoStoreMiddleware(),
+        new ContainerMiddleware($container, NoStoreMiddleware::class),
     );
-
     $v1 = $api->group('/v1', 'v1.');
 
     $v1->addHandler(
