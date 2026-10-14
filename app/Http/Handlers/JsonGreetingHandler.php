@@ -25,16 +25,16 @@ final class JsonGreetingHandler implements RequestHandler
             return self::unsupportedMediaType();
         }
 
-        $mediaType = strtolower(trim(
-            explode(';', $contentTypes[0], 2)[0],
-        ));
+        $mediaType = strtolower(
+            trim(explode(';', $contentTypes[0], 2)[0]),
+        );
 
         if ($mediaType !== 'application/json') {
             return self::unsupportedMediaType();
         }
 
         try {
-            $payload = JsonObjectDecoder::decode($request->body());
+            $document = JsonObjectDecoder::decode($request->body());
         } catch (InvalidJsonException) {
             return ProblemResponseFactory::create(
                 400,
@@ -43,39 +43,48 @@ final class JsonGreetingHandler implements RequestHandler
             );
         }
 
-        $fields = get_object_vars($payload);
-
-        if (array_diff(array_keys($fields), ['name', 'style']) !== []) {
-            return self::invalidFields();
-        }
+        $fields = get_object_vars($document);
 
         $name = $fields['name'] ?? null;
-
-        if (
-            ! is_string($name)
-            || trim($name) === ''
-            || strlen($name) > 100
-        ) {
-            return self::invalidFields();
-        }
 
         $style = array_key_exists('style', $fields)
             ? $fields['style']
             : 'friendly';
 
-        if (! is_string($style)) {
-            return self::invalidFields();
+        $validName = is_string($name)
+            && trim($name) !== ''
+            && strlen($name) <= 100;
+
+        $validStyle = is_string($style)
+            && in_array($style, ['friendly', 'formal'], true);
+
+        $invalidFields = [];
+
+        if (!$validName) {
+            $invalidFields[] = 'name';
         }
 
-        $prefix = match ($style) {
-            'friendly' => 'Hello',
-            'formal' => 'Welcome',
-            default => null,
-        };
-
-        if ($prefix === null) {
-            return self::invalidFields();
+        if (!$validStyle) {
+            $invalidFields[] = 'style';
         }
+
+        foreach ($fields as $field => $_value) {
+            if ($field !== 'name' && $field !== 'style') {
+                $invalidFields[] = (string) $field;
+            }
+        }
+
+        if ($invalidFields !== []) {
+            return ProblemResponseFactory::create(
+                422,
+                'Unprocessable Content',
+                extensions: [
+                    'invalid_fields' => $invalidFields,
+                ],
+            );
+        }
+
+        $prefix = $style === 'formal' ? 'Welcome' : 'Hello';
 
         return ResponseFactory::json([
             'greeting' => $prefix . ', ' . $name,
@@ -88,14 +97,6 @@ final class JsonGreetingHandler implements RequestHandler
             415,
             'Unsupported Media Type',
             'Use application/json without Content-Encoding.',
-        );
-    }
-
-    private static function invalidFields(): Response
-    {
-        return ProblemResponseFactory::create(
-            422,
-            'Unprocessable Content',
         );
     }
 }

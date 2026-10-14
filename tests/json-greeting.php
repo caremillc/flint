@@ -8,146 +8,194 @@ use Flint\Http\Request;
 
 require_once dirname(__DIR__) . '/vendor/autoload.php';
 
-function jsonGreetingCheck(bool $condition, string $message): void
-{
-    if (! $condition) {
+function jsonGreetingCheck(
+    bool $condition,
+    string $message,
+): void {
+    if (!$condition) {
         throw new RuntimeException($message);
     }
 }
 
 $handler = new JsonGreetingHandler();
 
-$problems = [
-    400 => [
-        'type' => 'about:blank',
-        'title' => 'Bad Request',
-        'status' => 400,
-        'detail' => 'The body must contain a valid JSON object.',
-    ],
-    415 => [
-        'type' => 'about:blank',
-        'title' => 'Unsupported Media Type',
-        'status' => 415,
-        'detail' => 'Use application/json without Content-Encoding.',
-    ],
-    422 => [
-        'type' => 'about:blank',
-        'title' => 'Unprocessable Content',
-        'status' => 422,
-    ],
+$badRequest = [
+    'type' => 'about:blank',
+    'title' => 'Bad Request',
+    'status' => 400,
+    'detail' => 'The body must contain a valid JSON object.',
 ];
 
-$cases = [
-    ['{"name":"Ada"}', 200, 'Hello, Ada'],
-    ['{"name":"Ada","style":"formal"}', 200, 'Welcome, Ada'],
-    ['', 400, null],
-    ['{"name":', 400, null],
-    ['[]', 400, null],
-    ['{}', 422, null],
-    ['{"name":42}', 422, null],
-    ['{"name":"   "}', 422, null],
-    ['{"name":"' . str_repeat('a', 101) . '"}', 422, null],
-    ['{"name":"Ada","style":"unknown"}', 422, null],
-    ['{"name":"Ada","style":null}', 422, null],
-    ['{"name":"Ada","extra":true}', 422, null],
+$unsupportedMedia = [
+    'type' => 'about:blank',
+    'title' => 'Unsupported Media Type',
+    'status' => 415,
+    'detail' => 'Use application/json without Content-Encoding.',
 ];
 
-foreach ($cases as [$body, $status, $greeting]) {
-    $response = $handler->handle(
-        new Request(
-            method: 'POST',
-            target: '/hello',
-            headers: new Headers()->with('Content-Type', 'application/json'),
-            body: $body,
+$successCases = [
+    ['{"name":"Ada"}', 'Hello, Ada'],
+    ['{"name":"Ada","style":"formal"}', 'Welcome, Ada'],
+];
+
+foreach ($successCases as [$body, $greeting]) {
+    $response = $handler->handle(new Request(
+        'POST',
+        '/hello',
+        (new Headers())->with('Content-Type', 'application/json'),
+        $body,
+    ));
+
+    jsonGreetingCheck(
+        $response->status() === 200,
+        'Valid greeting: unexpected status.',
+    );
+
+    jsonGreetingCheck(
+        $response->headers()->get('Content-Type')
+            === ['application/json'],
+        'Valid greeting: unexpected media type.',
+    );
+
+    jsonGreetingCheck(
+        json_decode($response->body(), true, 512, JSON_THROW_ON_ERROR)
+            === ['greeting' => $greeting],
+        'Valid greeting: unexpected document.',
+    );
+}
+
+foreach (['', '{"name":', '[]'] as $body) {
+    $response = $handler->handle(new Request(
+        'POST',
+        '/hello',
+        (new Headers())->with('Content-Type', 'application/json'),
+        $body,
+    ));
+
+    jsonGreetingCheck(
+        $response->status() === 400,
+        'Invalid JSON object: expected 400.',
+    );
+
+    jsonGreetingCheck(
+        $response->headers()->get('Content-Type')
+            === ['application/problem+json'],
+        'Invalid JSON object: unexpected media type.',
+    );
+
+    jsonGreetingCheck(
+        json_decode($response->body(), true, 512, JSON_THROW_ON_ERROR)
+            === $badRequest,
+        'Invalid JSON object: unexpected problem document.',
+    );
+}
+
+$invalidFieldCases = [
+    ['{}', ['name']],
+    ['{"name":null}', ['name']],
+    ['{"name":42}', ['name']],
+    ['{"name":"   "}', ['name']],
+    [
+        json_encode(
+            ['name' => str_repeat('a', 101)],
+            JSON_THROW_ON_ERROR,
         ),
+        ['name'],
+    ],
+    ['{"name":"Ada","style":"unknown"}', ['style']],
+    ['{"name":"Ada","style":null}', ['style']],
+    ['{"name":"Ada","extra":true}', ['extra']],
+    [
+        '{"name":42,"style":false,"extra":"private-value"}',
+        ['name', 'style', 'extra'],
+    ],
+];
+
+foreach ($invalidFieldCases as [$body, $invalidFields]) {
+    $response = $handler->handle(new Request(
+        'POST',
+        '/hello',
+        (new Headers())->with('Content-Type', 'application/json'),
+        $body,
+    ));
+
+    jsonGreetingCheck(
+        $response->status() === 422,
+        'Invalid fields: expected 422.',
     );
 
     jsonGreetingCheck(
-        $response->status() === $status,
-        'Unexpected JSON greeting status.',
-    );
-
-    $expected = $status === 200
-        ? ['greeting' => $greeting]
-        : $problems[$status];
-
-    jsonGreetingCheck(
-        json_decode(
-            $response->body(),
-            associative: true,
-            flags: JSON_THROW_ON_ERROR,
-        ) === $expected,
-        'Unexpected JSON response document.',
+        $response->headers()->get('Content-Type')
+            === ['application/problem+json'],
+        'Invalid fields: unexpected media type.',
     );
 
     jsonGreetingCheck(
-        $response->headers()->get('Content-Type') === [
-            $status === 200
-                ? 'application/json'
-                : 'application/problem+json',
-        ],
-        'Unexpected response media type.',
+        json_decode($response->body(), true, 512, JSON_THROW_ON_ERROR)
+            === [
+                'type' => 'about:blank',
+                'title' => 'Unprocessable Content',
+                'status' => 422,
+                'invalid_fields' => $invalidFields,
+            ],
+        'Invalid fields: unexpected problem document.',
     );
 }
 
 $unsupportedHeaders = [
     new Headers(),
-    new Headers()->with('Content-Type', 'text/plain'),
-    new Headers()->with(
+    (new Headers())->with('Content-Type', 'text/plain'),
+    (new Headers())->with(
         'Content-Type',
         'application/json',
         'application/json',
     ),
-    new Headers()
+    (new Headers())
         ->with('Content-Type', 'application/json')
         ->with('Content-Encoding', 'gzip'),
 ];
 
 foreach ($unsupportedHeaders as $headers) {
-    $response = $handler->handle(
-        new Request(
-            method: 'POST',
-            target: '/hello',
-            headers: $headers,
-            body: '{"name":"Ada"}',
-        ),
-    );
+    $response = $handler->handle(new Request(
+        'POST',
+        '/hello',
+        $headers,
+        '{"name":"Ada"}',
+    ));
 
-    jsonGreetingCheck($response->status() === 415, 'Expected status 415.');
+    jsonGreetingCheck(
+        $response->status() === 415,
+        'Unsupported media: expected 415.',
+    );
 
     jsonGreetingCheck(
         $response->headers()->get('Content-Type')
             === ['application/problem+json'],
-        'Unsupported media errors must use Problem Details.',
+        'Unsupported media: unexpected media type.',
     );
 
     jsonGreetingCheck(
-        json_decode(
-            $response->body(),
-            associative: true,
-            flags: JSON_THROW_ON_ERROR,
-        ) === $problems[415],
-        'Unexpected unsupported-media problem document.',
+        json_decode($response->body(), true, 512, JSON_THROW_ON_ERROR)
+            === $unsupportedMedia,
+        'Unsupported media: unexpected problem document.',
     );
 }
 
-$withCharset = $handler->handle(
-    new Request(
-        method: 'POST',
-        target: '/hello',
-        headers: new Headers()->with(
-            'Content-Type',
-            'Application/JSON; charset=utf-8',
-        ),
-        body: '{"name":"Ada"}',
+$response = $handler->handle(new Request(
+    'POST',
+    '/hello',
+    (new Headers())->with(
+        'Content-Type',
+        'Application/JSON; charset=utf-8',
     ),
-);
+    '{"name":"Ada"}',
+));
 
 jsonGreetingCheck(
-    $withCharset->status() === 200
-        && $withCharset->body() === '{"greeting":"Hello, Ada"}',
-    'JSON media-type parameters must preserve successful decoding.',
+    $response->status() === 200
+        && $response->body() === '{"greeting":"Hello, Ada"}',
+    'A valid request must succeed after earlier rejections.',
 );
 
-echo 'PASS: JSON greeting, Problem Details, media types, and field validation.'
+echo 'PASS: JSON greeting, invalid field reporting, media types, and recovery.'
     . PHP_EOL;

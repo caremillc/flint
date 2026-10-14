@@ -46,8 +46,8 @@ $invalidFields = [
     'type' => 'about:blank',
     'title' => 'Unprocessable Content',
     'status' => 422,
+    'invalid_fields' => ['style'],
 ];
-
 $unsupportedMedia = [
     'type' => 'about:blank',
     'title' => 'Unsupported Media Type',

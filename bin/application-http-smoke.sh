@@ -309,7 +309,10 @@ check_response GET '/hello/Ada?style=unknown' 400 'Bad request'
 check_response GET '/hello/Ada?style=' 400 'Bad request'
 
 json_bad_request='{"type":"about:blank","title":"Bad Request","status":400,"detail":"The body must contain a valid JSON object."}'
-json_invalid_fields='{"type":"about:blank","title":"Unprocessable Content","status":422}'
+# json_invalid_fields='{"type":"about:blank","title":"Unprocessable Content","status":422}'
+json_invalid_fields='{"type":"about:blank","title":"Unprocessable Content","status":422,"invalid_fields":["name"]}'
+json_invalid_style='{"type":"about:blank","title":"Unprocessable Content","status":422,"invalid_fields":["style"]}'
+
 json_unsupported_media='{"type":"about:blank","title":"Unsupported Media Type","status":415,"detail":"Use application/json without Content-Encoding."}'
 
 check_json_response 200 '{"greeting":"Hello, Ada"}' \
@@ -327,7 +330,9 @@ check_json_response 400 "$json_bad_request" \
 check_json_response 422 "$json_invalid_fields" \
     '{"name":42}'
 
-check_json_response 422 "$json_invalid_fields" \
+check_json_response \
+    422 \
+    "$json_invalid_style" \
     '{"name":"Ada","style":"unknown"}'
 
 check_json_response 415 "$json_unsupported_media" \
