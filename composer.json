@@ -61,6 +61,7 @@
         "test:routes-bootstrap": "@php tests/routes-bootstrap.php",
         "test:route-links": "@php tests/route-links.php",
         "test:route-access-logging": "@php tests/route-access-logging.php",
+        "test:access-log-verifier": "@php tests/access-log-verifier.php",
         "check": [
             "@composer validate --strict",
             "@composer dump-autoload --optimize --strict-psr --strict-ambiguous",
@@ -90,7 +91,8 @@
             "@test:route-url-command",
             "@test:routes-bootstrap",
             "@test:route-links",
-            "@test:route-access-logging"
+            "@test:route-access-logging",
+            "@test:access-log-verifier"
         ],
         "check:framework": "@composer --working-dir=framework check",
         "check:all": [
