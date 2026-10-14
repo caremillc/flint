@@ -1,6 +1,6 @@
 <?php
 
-declare(strict_types=1);
+declare (strict_types = 1);
 
 namespace App\Http\Handlers;
 
@@ -9,27 +9,29 @@ use Flint\Http\Request;
 use Flint\Http\RequestHandler;
 use Flint\Http\Response;
 use Flint\Http\ResponseFactory;
+use Flint\Routing\RouteParameters;
 use LogicException;
 
 final class GreetingHandler implements RequestHandler
 {
     public function handle(Request $request): Response
     {
-        $parameters = $request->attribute('route.parameters');
+        // $parameters = $request->attribute('route.parameters');
 
-        if (
-            !is_array($parameters)
-            || !is_string($parameters['name'] ?? null)
-            || $parameters['name'] === ''
-        ) {
-            throw new LogicException(
-                'The greeting route requires a non-empty name parameter.',
-            );
-        }
+        // if (
+        //     !is_array($parameters)
+        //     || !is_string($parameters['name'] ?? null)
+        //     || $parameters['name'] === ''
+        // ) {
+        //     throw new LogicException(
+        //         'The greeting route requires a non-empty name parameter.',
+        //     );
+        // }
 
+        $name  = RouteParameters::fromRequest($request)->get('name');
         $query = $request->attribute('request.query');
 
-        if (!is_array($query)) {
+        if (! is_array($query)) {
             throw new LogicException(
                 'The greeting handler requires parsed query parameters.',
             );
@@ -39,7 +41,7 @@ final class GreetingHandler implements RequestHandler
             ? $query['style']
             : GreetingStyle::Friendly->value;
 
-        if (!is_string($styleValue)) {
+        if (! is_string($styleValue)) {
             throw new LogicException(
                 'Parsed greeting style must be a string.',
             );
@@ -51,8 +53,12 @@ final class GreetingHandler implements RequestHandler
             return ResponseFactory::text('Bad request', 400);
         }
 
+        // return ResponseFactory::json([
+        //     'greeting' => $style->greet($parameters['name']),
+        // ]);
+
         return ResponseFactory::json([
-            'greeting' => $style->greet($parameters['name']),
+            'greeting' => $style->greet($name),
         ]);
     }
 }
