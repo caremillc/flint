@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Http\Handlers\GreetingHandler;
+use App\Http\Handlers\JsonGreetingHandler;
 use Flint\Configuration\Configuration;
 use Flint\Http\Request;
 use Flint\Http\Response;
@@ -38,5 +39,14 @@ return static function (
         '/hello/{name}',
         $greeting->handle(...),
         name: 'greeting',
+    );
+
+     $jsonGreeting = new JsonGreetingHandler();
+
+    $router->add(
+        'POST',
+        '/hello',
+        $jsonGreeting->handle(...),
+        name: 'greeting.create',
     );
 };

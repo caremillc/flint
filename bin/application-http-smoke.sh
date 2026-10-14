@@ -113,6 +113,8 @@ check_response() {
     local status
     local request_id
     local -a options
+    local request_body="${5-}"
+    local content_type="${6-application/json}"
 
     : >"$temporary_dir/body"
 
@@ -129,6 +131,14 @@ check_response() {
         options+=(--head --output /dev/null)
     else
         options+=(--request "$method" --output "$temporary_dir/body")
+    fi
+
+    if [ "$#" -ge 5 ]; then
+        options+=(
+            --header "Content-Type: $content_type"
+            --header 'Expect:'
+            --data-binary "$request_body"
+        )
     fi
 
     status="$(curl "${options[@]}" "$base_url$path")" \
@@ -264,6 +274,28 @@ check_response HEAD '/hello/Ada?style=formal' 200 ''
 check_response GET '/hello/Ada?style=unknown' 400 'Bad request'
 check_response GET '/hello/Ada?style=' 400 'Bad request'
 
+check_response POST /hello 200 '{"greeting":"Hello, Ada"}' \
+    '{"name":"Ada"}'
+
+check_response POST /hello 200 '{"greeting":"Welcome, Ada"}' \
+    '{"name":"Ada","style":"formal"}'
+
+check_response POST /hello 400 'Bad request' \
+    '{"name":'
+
+check_response POST /hello 400 'Bad request' \
+    '[]'
+
+check_response POST /hello 422 'Unprocessable content' \
+    '{"name":42}'
+
+check_response POST /hello 422 'Unprocessable content' \
+    '{"name":"Ada","style":"unknown"}'
+
+check_response POST /hello 415 'Unsupported media type' \
+    '{"name":"Ada"}' 'text/plain'
+
+    
 # Disable MSYS argument conversion only for these HTTP-path arguments.
 MSYS2_ARG_CONV_EXCL='*' php bin/http-head-check.php \
     "$address" /health 200 15 \
