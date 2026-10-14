@@ -38,6 +38,7 @@ fail() {
     exit 1
 }
 
+# Ask the operating system for an available local port.
 address="$(php -r '
 $listener = stream_socket_server("tcp://127.0.0.1:0", $code, $message);
 
@@ -59,6 +60,7 @@ echo $address;
 application_name="Flint Smoke $(php -r 'echo bin2hex(random_bytes(8));')"
 base_url="http://$address"
 
+# Use predictable configuration for this server process only.
 env -u PHP_CLI_SERVER_WORKERS \
     APP_NAME="$application_name" \
     APP_DEBUG=false \
@@ -110,11 +112,11 @@ check_response() {
     local path="$2"
     local expected_status="$3"
     local expected_body="$4"
+    local request_body="${5-}"
+    local content_type="${6-application/json}"
     local status
     local request_id
     local -a options
-    local request_body="${5-}"
-    local content_type="${6-application/json}"
 
     : >"$temporary_dir/body"
 
@@ -137,15 +139,25 @@ check_response() {
         options+=(
             --header "Content-Type: $content_type"
             --header 'Expect:'
-            --data-binary "$request_body"
+            --data-binary '@-'
         )
     fi
 
-    status="$(curl "${options[@]}" "$base_url$path")" \
-        || fail "$method $path: request failed."
+    # Send body bytes through stdin rather than native Windows arguments.
+    status="$(
+        printf '%s' "$request_body" |
+            curl "${options[@]}" "$base_url$path"
+    )" || fail "$method $path: request failed."
 
-    [ "$status" = "$expected_status" ] \
-        || fail "$method $path: expected $expected_status, received $status."
+    if [ "$status" != "$expected_status" ]; then
+        if [ -s "$temporary_dir/body" ]; then
+            printf 'Response body: ' >&2
+            cat "$temporary_dir/body" >&2
+            printf '\n' >&2
+        fi
+
+        fail "$method $path: expected $expected_status, received $status."
+    fi
 
     printf '%s' "$expected_body" >"$temporary_dir/expected"
 
@@ -243,6 +255,7 @@ check_json_response() {
         "$temporary_dir/normalized-headers" \
         || fail "POST $target: missing no-store policy."
 }
+
 check_capture_response() {
     local content_type="$1"
     local body_file="$2"
@@ -335,10 +348,8 @@ check_response GET '/hello/Ada?style=unknown' 400 'Bad request'
 check_response GET '/hello/Ada?style=' 400 'Bad request'
 
 json_bad_request='{"type":"about:blank","title":"Bad Request","status":400,"detail":"The body must contain a valid JSON object."}'
-# json_invalid_fields='{"type":"about:blank","title":"Unprocessable Content","status":422}'
 json_invalid_fields='{"type":"about:blank","title":"Unprocessable Content","status":422,"invalid_fields":["name"]}'
 json_invalid_style='{"type":"about:blank","title":"Unprocessable Content","status":422,"invalid_fields":["style"]}'
-
 json_unsupported_media='{"type":"about:blank","title":"Unsupported Media Type","status":415,"detail":"Use application/json without Content-Encoding."}'
 
 check_json_response 200 '{"greeting":"Hello, Ada"}' \
@@ -370,9 +381,10 @@ check_json_response \
     200 \
     '{"greeting":"Hello, 123456789012345678901234567890"}' \
     '{"name":"123456789012345678901234567890"}'
-    
+
 check_json_response 415 "$json_unsupported_media" \
-    '{"name":"Ada"}' 'text/plain'
+    '{"name":"Ada"}' \
+    'text/plain'
 
 # Media-type matching is case-insensitive; parameters are accepted.
 check_json_response \
@@ -416,6 +428,7 @@ check_json_response \
     '{"greeting":"Welcome, Grace"}' \
     '{"name":"Grace","style":"formal"}'
 
+# Versioned route groups.
 check_response \
     GET \
     /api/v1/health \
@@ -445,6 +458,7 @@ check_json_response \
 check_response POST /api/v1/health 405 'Method not allowed'
 check_response GET /api/v1/missing 404 'Not found'
 
+# Constrained route parameters.
 check_response \
     GET \
     /api/v1/hello/Ada-Lovelace \
@@ -466,6 +480,23 @@ check_response \
 check_response GET /api/v1/hello/Ada_Lovelace 404 'Not found'
 check_response GET /api/v1/hello/a%2Fb 404 'Not found'
 check_response POST /api/v1/hello/Ada 405 'Method not allowed'
+
+# Named-route URL generation through an injected application service.
+links_body='{"links":{"self":"/links","health":"/health","greeting":"/hello/Ada%20Lovelace?style=formal","api_health":"/api/v1/health","api_greeting":"/api/v1/hello/Ada-Lovelace?style=formal"}}'
+
+check_response GET /links 200 "$links_body"
+check_response HEAD /links 200 ''
+check_response POST /links 405 'Method not allowed'
+
+check_response GET \
+    '/hello/Ada%20Lovelace?style=formal' \
+    200 \
+    '{"greeting":"Welcome, Ada%20Lovelace"}'
+
+check_response GET \
+    '/api/v1/hello/Ada-Lovelace?style=formal' \
+    200 \
+    '{"greeting":"Welcome, Ada-Lovelace"}'
 
 # Disable MSYS argument conversion only for these HTTP-path arguments.
 MSYS2_ARG_CONV_EXCL='*' php bin/http-head-check.php \
@@ -528,8 +559,4 @@ php bin/verify-access-log.php \
     "$temporary_dir/expected-access.tsv" \
     || fail "Access-log correlation failed."
 
- grep -Eiq '^cache-control: no-store$' \
-        "$temporary_dir/normalized-headers" \
-        || fail "POST /hello: missing route-specific no-store policy."
-        
 echo "PASS: $request_count application HTTP requests."

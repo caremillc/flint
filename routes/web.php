@@ -1,11 +1,12 @@
 <?php
 
-declare(strict_types=1);
+declare (strict_types = 1);
 
 use App\Http\Handlers\GreetingHandler;
 use App\Http\Handlers\HealthHandler;
 use App\Http\Handlers\HomeHandler;
 use App\Http\Handlers\JsonGreetingHandler;
+use App\Http\Handlers\LinksHandler;
 use App\Http\Middleware\NoStoreMiddleware;
 use Flint\Configuration\Configuration;
 use Flint\Container\Container;
@@ -21,21 +22,20 @@ return static function (
 ): void {
     $container ??= new Container();
 
-    if (!$container->has(Configuration::class)) {
+    if (! $container->has(Configuration::class)) {
         $container->instance(Configuration::class, $configuration);
     }
 
-    foreach (
-        [
-            HomeHandler::class,
-            HealthHandler::class,
-            GreetingHandler::class,
-            JsonGreetingHandler::class,
-            NoStoreMiddleware::class,
-        ] as $serviceClass
-    ) {
-        if (!$container->has($serviceClass)) {
-            $container->autowire($serviceClass);
+    foreach ([
+        HomeHandler::class,
+        HealthHandler::class,
+        GreetingHandler::class,
+        JsonGreetingHandler::class,
+        LinksHandler::class,
+        NoStoreMiddleware::class,
+    ] as $class) {
+        if (! $container->has($class)) {
+            $container->autowire($class);
         }
     }
 
@@ -44,6 +44,16 @@ return static function (
         '/health',
         new ContainerRequestHandler($container, HealthHandler::class),
         'health',
+    );
+
+    $router->addHandler(
+        'GET',
+        '/links',
+        new ContainerRequestHandler(
+            $container,
+            LinksHandler::class,
+        ),
+        'links',
     );
 
     $router->addHandler(
