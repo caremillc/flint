@@ -17,26 +17,42 @@ function jsonGreetingCheck(bool $condition, string $message): void
 
 $handler = new JsonGreetingHandler();
 
-$cases = [
-    ['{"name":"Ada"}', 200, '{"greeting":"Hello, Ada"}'],
-    [
-        '{"name":"Ada","style":"formal"}',
-        200,
-        '{"greeting":"Welcome, Ada"}',
+$problems = [
+    400 => [
+        'type' => 'about:blank',
+        'title' => 'Bad Request',
+        'status' => 400,
+        'detail' => 'The body must contain a valid JSON object.',
     ],
-    ['', 400, 'Bad request'],
-    ['{"name":', 400, 'Bad request'],
-    ['[]', 400, 'Bad request'],
-    ['{}', 422, 'Unprocessable content'],
-    ['{"name":42}', 422, 'Unprocessable content'],
-    ['{"name":"   "}', 422, 'Unprocessable content'],
-    ['{"name":"' . str_repeat('a', 101) . '"}', 422, 'Unprocessable content'],
-    ['{"name":"Ada","style":"unknown"}', 422, 'Unprocessable content'],
-    ['{"name":"Ada","style":null}', 422, 'Unprocessable content'],
-    ['{"name":"Ada","extra":true}', 422, 'Unprocessable content'],
+    415 => [
+        'type' => 'about:blank',
+        'title' => 'Unsupported Media Type',
+        'status' => 415,
+        'detail' => 'Use application/json without Content-Encoding.',
+    ],
+    422 => [
+        'type' => 'about:blank',
+        'title' => 'Unprocessable Content',
+        'status' => 422,
+    ],
 ];
 
-foreach ($cases as [$body, $status, $expectedBody]) {
+$cases = [
+    ['{"name":"Ada"}', 200, 'Hello, Ada'],
+    ['{"name":"Ada","style":"formal"}', 200, 'Welcome, Ada'],
+    ['', 400, null],
+    ['{"name":', 400, null],
+    ['[]', 400, null],
+    ['{}', 422, null],
+    ['{"name":42}', 422, null],
+    ['{"name":"   "}', 422, null],
+    ['{"name":"' . str_repeat('a', 101) . '"}', 422, null],
+    ['{"name":"Ada","style":"unknown"}', 422, null],
+    ['{"name":"Ada","style":null}', 422, null],
+    ['{"name":"Ada","extra":true}', 422, null],
+];
+
+foreach ($cases as [$body, $status, $greeting]) {
     $response = $handler->handle(
         new Request(
             method: 'POST',
@@ -50,9 +66,27 @@ foreach ($cases as [$body, $status, $expectedBody]) {
         $response->status() === $status,
         'Unexpected JSON greeting status.',
     );
+
+    $expected = $status === 200
+        ? ['greeting' => $greeting]
+        : $problems[$status];
+
     jsonGreetingCheck(
-        $response->body() === $expectedBody,
-        'Unexpected JSON greeting response.',
+        json_decode(
+            $response->body(),
+            associative: true,
+            flags: JSON_THROW_ON_ERROR,
+        ) === $expected,
+        'Unexpected JSON response document.',
+    );
+
+    jsonGreetingCheck(
+        $response->headers()->get('Content-Type') === [
+            $status === 200
+                ? 'application/json'
+                : 'application/problem+json',
+        ],
+        'Unexpected response media type.',
     );
 }
 
@@ -79,10 +113,21 @@ foreach ($unsupportedHeaders as $headers) {
         ),
     );
 
+    jsonGreetingCheck($response->status() === 415, 'Expected status 415.');
+
     jsonGreetingCheck(
-        $response->status() === 415
-            && $response->body() === 'Unsupported media type',
-        'Unsupported representations must receive 415.',
+        $response->headers()->get('Content-Type')
+            === ['application/problem+json'],
+        'Unsupported media errors must use Problem Details.',
+    );
+
+    jsonGreetingCheck(
+        json_decode(
+            $response->body(),
+            associative: true,
+            flags: JSON_THROW_ON_ERROR,
+        ) === $problems[415],
+        'Unexpected unsupported-media problem document.',
     );
 }
 
@@ -99,9 +144,10 @@ $withCharset = $handler->handle(
 );
 
 jsonGreetingCheck(
-    $withCharset->status() === 200,
-    'The JSON media type must accept case differences and parameters.',
+    $withCharset->status() === 200
+        && $withCharset->body() === '{"greeting":"Hello, Ada"}',
+    'JSON media-type parameters must preserve successful decoding.',
 );
 
-echo 'PASS: JSON greeting, media types, decoding, and field validation.'
+echo 'PASS: JSON greeting, Problem Details, media types, and field validation.'
     . PHP_EOL;

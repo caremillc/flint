@@ -6,6 +6,7 @@ namespace App\Http\Handlers;
 
 use Flint\Http\Exception\InvalidJsonException;
 use Flint\Http\JsonObjectDecoder;
+use Flint\Http\ProblemResponseFactory;
 use Flint\Http\Request;
 use Flint\Http\RequestHandler;
 use Flint\Http\Response;
@@ -21,7 +22,7 @@ final class JsonGreetingHandler implements RequestHandler
             count($contentTypes) !== 1
             || $request->headers()->has('Content-Encoding')
         ) {
-            return ResponseFactory::text('Unsupported media type', 415);
+            return self::unsupportedMediaType();
         }
 
         $mediaType = strtolower(trim(
@@ -29,19 +30,23 @@ final class JsonGreetingHandler implements RequestHandler
         ));
 
         if ($mediaType !== 'application/json') {
-            return ResponseFactory::text('Unsupported media type', 415);
+            return self::unsupportedMediaType();
         }
 
         try {
             $payload = JsonObjectDecoder::decode($request->body());
         } catch (InvalidJsonException) {
-            return ResponseFactory::text('Bad request', 400);
+            return ProblemResponseFactory::create(
+                400,
+                'Bad Request',
+                'The body must contain a valid JSON object.',
+            );
         }
 
         $fields = get_object_vars($payload);
 
         if (array_diff(array_keys($fields), ['name', 'style']) !== []) {
-            return ResponseFactory::text('Unprocessable content', 422);
+            return self::invalidFields();
         }
 
         $name = $fields['name'] ?? null;
@@ -51,7 +56,7 @@ final class JsonGreetingHandler implements RequestHandler
             || trim($name) === ''
             || strlen($name) > 100
         ) {
-            return ResponseFactory::text('Unprocessable content', 422);
+            return self::invalidFields();
         }
 
         $style = array_key_exists('style', $fields)
@@ -59,7 +64,7 @@ final class JsonGreetingHandler implements RequestHandler
             : 'friendly';
 
         if (! is_string($style)) {
-            return ResponseFactory::text('Unprocessable content', 422);
+            return self::invalidFields();
         }
 
         $prefix = match ($style) {
@@ -69,11 +74,28 @@ final class JsonGreetingHandler implements RequestHandler
         };
 
         if ($prefix === null) {
-            return ResponseFactory::text('Unprocessable content', 422);
+            return self::invalidFields();
         }
 
         return ResponseFactory::json([
             'greeting' => $prefix . ', ' . $name,
         ]);
+    }
+
+    private static function unsupportedMediaType(): Response
+    {
+        return ProblemResponseFactory::create(
+            415,
+            'Unsupported Media Type',
+            'Use application/json without Content-Encoding.',
+        );
+    }
+
+    private static function invalidFields(): Response
+    {
+        return ProblemResponseFactory::create(
+            422,
+            'Unprocessable Content',
+        );
     }
 }

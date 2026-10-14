@@ -183,6 +183,40 @@ check_response() {
     echo "PASS: $method $path -> $status"
 }
 
+check_json_response() {
+    local expected_status="$1"
+    local expected_body="$2"
+    local request_body="$3"
+    local content_type="${4-application/json}"
+    local expected_media_type
+    local actual_media_type
+
+    check_response \
+        POST \
+        /hello \
+        "$expected_status" \
+        "$expected_body" \
+        "$request_body" \
+        "$content_type"
+
+    if [ "$expected_status" = 200 ]; then
+        expected_media_type='application/json'
+    else
+        expected_media_type='application/problem+json'
+    fi
+
+    actual_media_type="$(awk '
+        tolower($1) == "content-type:" {
+            sub(/^[^:]*:[ \t]*/, "")
+            print
+        }
+    ' "$temporary_dir/normalized-headers")"
+
+    [ "$actual_media_type" = "$expected_media_type" ] \
+        || fail "POST /hello: unexpected response media type."
+}
+
+
 check_capture_response() {
     local content_type="$1"
     local body_file="$2"
@@ -274,28 +308,31 @@ check_response HEAD '/hello/Ada?style=formal' 200 ''
 check_response GET '/hello/Ada?style=unknown' 400 'Bad request'
 check_response GET '/hello/Ada?style=' 400 'Bad request'
 
-check_response POST /hello 200 '{"greeting":"Hello, Ada"}' \
+json_bad_request='{"type":"about:blank","title":"Bad Request","status":400,"detail":"The body must contain a valid JSON object."}'
+json_invalid_fields='{"type":"about:blank","title":"Unprocessable Content","status":422}'
+json_unsupported_media='{"type":"about:blank","title":"Unsupported Media Type","status":415,"detail":"Use application/json without Content-Encoding."}'
+
+check_json_response 200 '{"greeting":"Hello, Ada"}' \
     '{"name":"Ada"}'
 
-check_response POST /hello 200 '{"greeting":"Welcome, Ada"}' \
+check_json_response 200 '{"greeting":"Welcome, Ada"}' \
     '{"name":"Ada","style":"formal"}'
 
-check_response POST /hello 400 'Bad request' \
+check_json_response 400 "$json_bad_request" \
     '{"name":'
 
-check_response POST /hello 400 'Bad request' \
+check_json_response 400 "$json_bad_request" \
     '[]'
 
-check_response POST /hello 422 'Unprocessable content' \
+check_json_response 422 "$json_invalid_fields" \
     '{"name":42}'
 
-check_response POST /hello 422 'Unprocessable content' \
+check_json_response 422 "$json_invalid_fields" \
     '{"name":"Ada","style":"unknown"}'
 
-check_response POST /hello 415 'Unsupported media type' \
+check_json_response 415 "$json_unsupported_media" \
     '{"name":"Ada"}' 'text/plain'
-
-    
+        
 # Disable MSYS argument conversion only for these HTTP-path arguments.
 MSYS2_ARG_CONV_EXCL='*' php bin/http-head-check.php \
     "$address" /health 200 15 \
