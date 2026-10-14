@@ -188,6 +188,7 @@ check_json_response() {
     local expected_body="$2"
     local request_body="$3"
     local content_type="${4-application/json}"
+    local target="${5-/hello}"
     local expected_media_type
     local actual_media_type
     local expected_length
@@ -195,7 +196,7 @@ check_json_response() {
 
     check_response \
         POST \
-        /hello \
+        "$target" \
         "$expected_status" \
         "$expected_body" \
         "$request_body" \
@@ -215,9 +216,8 @@ check_json_response() {
     ' "$temporary_dir/normalized-headers")"
 
     [ "$actual_media_type" = "$expected_media_type" ] \
-        || fail "POST /hello: unexpected response media type."
+        || fail "POST $target: unexpected response media type."
 
-    # wc -c counts bytes, including UTF-8 multibyte sequences.
     expected_length="$(
         printf '%s' "$expected_body" |
             wc -c |
@@ -232,14 +232,17 @@ check_json_response() {
     ' "$temporary_dir/normalized-headers")"
 
     [ "$actual_length" = "$expected_length" ] \
-        || fail "POST /hello: expected Content-Length $expected_length, received [$actual_length]."
+        || fail "POST $target: expected Content-Length $expected_length, received [$actual_length]."
 
     if grep -Eiq '^transfer-encoding:' \
         "$temporary_dir/normalized-headers"; then
-        fail "POST /hello: unexpected Transfer-Encoding."
+        fail "POST $target: unexpected Transfer-Encoding."
     fi
-}
 
+    grep -Eiq '^cache-control: no-store$' \
+        "$temporary_dir/normalized-headers" \
+        || fail "POST $target: missing no-store policy."
+}
 check_capture_response() {
     local content_type="$1"
     local body_file="$2"
@@ -412,6 +415,35 @@ check_json_response \
     200 \
     '{"greeting":"Welcome, Grace"}' \
     '{"name":"Grace","style":"formal"}'
+
+check_response \
+    GET \
+    /api/v1/health \
+    200 \
+    '{"status":"ok"}'
+
+grep -Eiq '^cache-control: no-store$' \
+    "$temporary_dir/normalized-headers" \
+    || fail "GET /api/v1/health: missing group no-store policy."
+
+check_response HEAD /api/v1/health 200 ''
+
+check_json_response \
+    200 \
+    '{"greeting":"Hello, Ada"}' \
+    '{"name":"Ada"}' \
+    'application/json' \
+    '/api/v1/hello'
+
+check_json_response \
+    422 \
+    "$json_invalid_style" \
+    '{"name":"Ada","style":"unknown"}' \
+    'application/json' \
+    '/api/v1/hello'
+
+check_response POST /api/v1/health 405 'Method not allowed'
+check_response GET /api/v1/missing 404 'Not found'
 
 # Disable MSYS argument conversion only for these HTTP-path arguments.
 MSYS2_ARG_CONV_EXCL='*' php bin/http-head-check.php \

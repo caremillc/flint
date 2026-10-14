@@ -17,7 +17,6 @@ return static function (
     Configuration $configuration,
     ?Container $container = null,
 ): void {
-    // Preserve standalone two-argument route registration.
     $container ??= new Container();
 
     if (!$container->has(Configuration::class)) {
@@ -30,7 +29,6 @@ return static function (
         GreetingHandler::class,
         JsonGreetingHandler::class,
     ] as $handlerClass) {
-        // Explicit application bindings take precedence.
         if (!$container->has($handlerClass)) {
             $container->autowire($handlerClass);
         }
@@ -63,5 +61,27 @@ return static function (
         new ContainerRequestHandler($container, JsonGreetingHandler::class),
         'greeting.create',
         new NoStoreMiddleware(),
+    );
+
+    $api = $router->group(
+        '/api',
+        'api.',
+        new NoStoreMiddleware(),
+    );
+
+    $v1 = $api->group('/v1', 'v1.');
+
+    $v1->addHandler(
+        'GET',
+        '/health',
+        new ContainerRequestHandler($container, HealthHandler::class),
+        'health',
+    );
+
+    $v1->addHandler(
+        'POST',
+        '/hello',
+        new ContainerRequestHandler($container, JsonGreetingHandler::class),
+        'greeting.create',
     );
 };

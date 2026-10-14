@@ -51,6 +51,7 @@
             "@analyse:application"
         ],
         "test:framework": "@composer --working-dir=framework test",
+        "test:route-groups": "@php tests/route-groups.php",
         "check": [
             "@composer validate --strict",
             "@composer dump-autoload --optimize --strict-psr --strict-ambiguous",
@@ -72,7 +73,8 @@
             "@test:json-greeting-bootstrap",
             "@analyse:application",
             "@test:json-greeting-input",
-            "@test:route-handlers"
+            "@test:route-handlers",
+            "@test:route-groups"
         ],
         "check:framework": "@composer --working-dir=framework check",
         "check:all": [
