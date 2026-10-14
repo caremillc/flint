@@ -11,6 +11,7 @@ use Flint\Configuration\Configuration;
 use Flint\Container\Container;
 use Flint\Http\ContainerMiddleware;
 use Flint\Http\ContainerRequestHandler;
+use Flint\Routing\RouteConstraint;
 use Flint\Routing\Router;
 
 return static function (
@@ -86,5 +87,12 @@ return static function (
         '/hello',
         new ContainerRequestHandler($container, JsonGreetingHandler::class),
         'greeting.create',
+    );
+    $v1->addConstrainedHandler(
+        'GET',
+        '/hello/{name}',
+        new ContainerRequestHandler($container, GreetingHandler::class),
+        ['name' => RouteConstraint::Slug],
+        'greeting.show',
     );
 };

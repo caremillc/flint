@@ -53,6 +53,7 @@
         "test:framework": "@composer --working-dir=framework test",
         "test:route-groups": "@php tests/route-groups.php",
         "test:container-middleware": "@php tests/container-middleware.php",
+        "test:route-constraints": "@php tests/route-constraints.php",
         "check": [
             "@composer validate --strict",
             "@composer dump-autoload --optimize --strict-psr --strict-ambiguous",
@@ -76,7 +77,8 @@
             "@test:json-greeting-input",
             "@test:route-handlers",
             "@test:route-groups",
-            "@test:container-middleware"
+            "@test:container-middleware",
+            "@test:route-constraints"
         ],
         "check:framework": "@composer --working-dir=framework check",
         "check:all": [

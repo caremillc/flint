@@ -445,6 +445,28 @@ check_json_response \
 check_response POST /api/v1/health 405 'Method not allowed'
 check_response GET /api/v1/missing 404 'Not found'
 
+check_response \
+    GET \
+    /api/v1/hello/Ada-Lovelace \
+    200 \
+    '{"greeting":"Hello, Ada-Lovelace"}'
+
+grep -Eiq '^cache-control: no-store$' \
+    "$temporary_dir/normalized-headers" \
+    || fail "Constrained greeting: missing inherited no-store policy."
+
+check_response HEAD /api/v1/hello/Ada-Lovelace 200 ''
+
+check_response \
+    GET \
+    '/api/v1/hello/Ada?style=formal' \
+    200 \
+    '{"greeting":"Welcome, Ada"}'
+
+check_response GET /api/v1/hello/Ada_Lovelace 404 'Not found'
+check_response GET /api/v1/hello/a%2Fb 404 'Not found'
+check_response POST /api/v1/hello/Ada 405 'Method not allowed'
+
 # Disable MSYS argument conversion only for these HTTP-path arguments.
 MSYS2_ARG_CONV_EXCL='*' php bin/http-head-check.php \
     "$address" /health 200 15 \
