@@ -44,6 +44,7 @@
         "test:json-greeting": "@php tests/json-greeting.php",
         "test:json-greeting-bootstrap": "@php tests/json-greeting-bootstrap.php",
         "test:json-greeting-input": "@php tests/json-greeting-input.php",
+        "test:route-handlers": "@php tests/route-handlers.php",
         "analyse:application": "@php framework/vendor/bin/phpstan analyse --configuration=phpstan.application.neon.dist --no-progress --memory-limit=512M",
         "analyse": [
             "@composer --working-dir=framework analyse",
@@ -70,7 +71,8 @@
             "@test:json-greeting",
             "@test:json-greeting-bootstrap",
             "@analyse:application",
-            "@test:json-greeting-input"
+            "@test:json-greeting-input",
+            "@test:route-handlers"
         ],
         "check:framework": "@composer --working-dir=framework check",
         "check:all": [

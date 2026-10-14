@@ -3,50 +3,65 @@
 declare(strict_types=1);
 
 use App\Http\Handlers\GreetingHandler;
+use App\Http\Handlers\HealthHandler;
+use App\Http\Handlers\HomeHandler;
 use App\Http\Handlers\JsonGreetingHandler;
+use App\Http\Middleware\NoStoreMiddleware;
 use Flint\Configuration\Configuration;
-use Flint\Http\Request;
-use Flint\Http\Response;
-use Flint\Http\ResponseFactory;
+use Flint\Container\Container;
+use Flint\Http\ContainerRequestHandler;
 use Flint\Routing\Router;
 
 return static function (
     Router $router,
     Configuration $configuration,
+    ?Container $container = null,
 ): void {
-    $router->add(
+    // Preserve standalone two-argument route registration.
+    $container ??= new Container();
+
+    if (!$container->has(Configuration::class)) {
+        $container->instance(Configuration::class, $configuration);
+    }
+
+    foreach ([
+        HomeHandler::class,
+        HealthHandler::class,
+        GreetingHandler::class,
+        JsonGreetingHandler::class,
+    ] as $handlerClass) {
+        // Explicit application bindings take precedence.
+        if (!$container->has($handlerClass)) {
+            $container->autowire($handlerClass);
+        }
+    }
+
+    $router->addHandler(
         'GET',
         '/health',
-        static fn (Request $request): Response => ResponseFactory::json([
-            'status' => 'ok',
-        ]),
-        name: 'health',
+        new ContainerRequestHandler($container, HealthHandler::class),
+        'health',
     );
 
-    $router->add(
+    $router->addHandler(
         'GET',
         '/',
-        static fn (Request $request): Response => ResponseFactory::text(
-            $configuration->string('app.name'),
-        ),
-        name: 'home',
+        new ContainerRequestHandler($container, HomeHandler::class),
+        'home',
     );
 
-    $greeting = new GreetingHandler();
-
-    $router->add(
+    $router->addHandler(
         'GET',
         '/hello/{name}',
-        $greeting->handle(...),
-        name: 'greeting',
+        new ContainerRequestHandler($container, GreetingHandler::class),
+        'greeting',
     );
 
-     $jsonGreeting = new JsonGreetingHandler();
-
-    $router->add(
+    $router->addHandler(
         'POST',
         '/hello',
-        $jsonGreeting->handle(...),
-        name: 'greeting.create',
+        new ContainerRequestHandler($container, JsonGreetingHandler::class),
+        'greeting.create',
+        new NoStoreMiddleware(),
     );
 };

@@ -474,4 +474,8 @@ php bin/verify-access-log.php \
     "$temporary_dir/expected-access.tsv" \
     || fail "Access-log correlation failed."
 
+ grep -Eiq '^cache-control: no-store$' \
+        "$temporary_dir/normalized-headers" \
+        || fail "POST /hello: missing route-specific no-store policy."
+        
 echo "PASS: $request_count application HTTP requests."
