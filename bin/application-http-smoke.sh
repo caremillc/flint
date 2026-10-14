@@ -332,7 +332,49 @@ check_json_response 422 "$json_invalid_fields" \
 
 check_json_response 415 "$json_unsupported_media" \
     '{"name":"Ada"}' 'text/plain'
-        
+
+# Media-type matching is case-insensitive; parameters are accepted.
+check_json_response \
+    200 \
+    '{"greeting":"Hello, Ada"}' \
+    '{"name":"Ada"}' \
+    'Application/JSON; charset=utf-8'
+
+# Exactly 100 ASCII bytes are accepted.
+ascii_name="$(php -r 'echo str_repeat("a", 100);')"
+
+check_json_response \
+    200 \
+    "{\"greeting\":\"Hello, $ascii_name\"}" \
+    "{\"name\":\"$ascii_name\"}"
+
+# One byte beyond the limit is rejected.
+check_json_response \
+    422 \
+    "$json_invalid_fields" \
+    "{\"name\":\"${ascii_name}a\"}"
+
+# U+00E9 occupies two bytes in UTF-8.
+# Generate bytes explicitly so the script's file encoding is irrelevant.
+unicode_name="$(php -r 'echo str_repeat("\xC3\xA9", 50);')"
+unicode_extra="$(php -r 'echo "\xC3\xA9";')"
+
+check_json_response \
+    200 \
+    "{\"greeting\":\"Hello, $unicode_name\"}" \
+    "{\"name\":\"$unicode_name\"}"
+
+check_json_response \
+    422 \
+    "$json_invalid_fields" \
+    "{\"name\":\"${unicode_name}${unicode_extra}\"}"
+
+# Confirm another valid request succeeds after rejection.
+check_json_response \
+    200 \
+    '{"greeting":"Welcome, Grace"}' \
+    '{"name":"Grace","style":"formal"}'
+
 # Disable MSYS argument conversion only for these HTTP-path arguments.
 MSYS2_ARG_CONV_EXCL='*' php bin/http-head-check.php \
     "$address" /health 200 15 \
