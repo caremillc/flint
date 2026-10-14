@@ -29,4 +29,6 @@ $router = new Router();
 
 $registerRoutes($router, $configuration, $container);
 
+$router->freeze();
+
 return $router;
