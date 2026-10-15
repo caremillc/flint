@@ -38,7 +38,29 @@ if (
     );
 }
 
+if (!$first->isBooted() || !$second->isBooted()) {
+    throw new RuntimeException(
+        'Each bootstrap invocation must return a booted application.',
+    );
+}
+
+if ($first->container() === $second->container()) {
+    throw new RuntimeException(
+        'Independent applications must not share a container.',
+    );
+}
+
+// Calling boot again must preserve the successfully booted state.
+$first->boot();
+
+if (!$first->isBooted() || !$second->isBooted()) {
+    throw new RuntimeException(
+        'Repeated boot must preserve independent application state.',
+    );
+}
+
+
 fwrite(
     STDOUT,
-    "PASS: Composer bootstrap, application root, and independent construction.\n",
+    "PASS: Composer bootstrap, application root, independent containers, and booted applications.\n",
 );

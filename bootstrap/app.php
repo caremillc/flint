@@ -22,4 +22,6 @@ $application->register(
     new ConfigurationServiceProvider($configuration),
 );
 
+$application->boot();
+
 return $application;
