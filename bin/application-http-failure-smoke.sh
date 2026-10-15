@@ -8,14 +8,6 @@ cd "$project_root"
 command -v php >/dev/null
 command -v curl >/dev/null
 
-JSON_MAX_BODY_BYTES=4096 \
-
-env -u PHP_CLI_SERVER_WORKERS \
-    APP_NAME="$application_name" \
-    APP_DEBUG=false \
-    DATABASE_PORT=0 \
-    JSON_MAX_BODY_BYTES=4096 \
-
 test -f public/index.php
 test -f bin/http-head-check.php
 
@@ -45,6 +37,9 @@ fail() {
     exit 1
 }
 
+application_name="Flint Smoke $(php -r 'echo bin2hex(random_bytes(8));')"
+
+
 address="$(php -r '
 $listener = stream_socket_server("tcp://127.0.0.1:0", $code, $message);
 
@@ -68,9 +63,10 @@ base_url="http://$address"
 
 # Invalid configuration is intentional and applies only to this server.
 env -u PHP_CLI_SERVER_WORKERS \
-    APP_NAME='Flint Failure Smoke' \
+    APP_NAME="$application_name" \
     APP_DEBUG=false \
-    DATABASE_PORT=0 \
+     DATABASE_PORT=0 \
+    JSON_MAX_BODY_BYTES=4096 \
     php \
         -d display_errors=0 \
         -d log_errors=1 \
@@ -204,3 +200,4 @@ echo "PASS: Structured entry-point failure records.\n";
     || fail "Structured logging assertions failed."
 
 echo 'PASS: Application bootstrap failure HTTP checks.'
+
