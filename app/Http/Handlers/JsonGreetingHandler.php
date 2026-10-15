@@ -7,7 +7,8 @@ namespace App\Http\Handlers;
 use App\Http\Input\InvalidGreetingInput;
 use App\Http\Input\JsonGreetingInput;
 use Flint\Http\Exception\InvalidJsonException;
-use Flint\Http\JsonObjectDecoder;
+use Flint\Http\Exception\UnsupportedJsonMediaTypeException;
+use Flint\Http\JsonRequestDecoder;
 use Flint\Http\ProblemResponseFactory;
 use Flint\Http\Request;
 use Flint\Http\RequestHandler;
@@ -18,28 +19,16 @@ final class JsonGreetingHandler implements RequestHandler
 {
     public function handle(Request $request): Response
     {
-        $contentTypes = $request->headers()->get('Content-Type');
-
-        if (
-            count($contentTypes) !== 1
-            || $request->headers()->has('Content-Encoding')
-        ) {
-            return self::unsupportedMediaType();
-        }
-
-        $mediaType = strtolower(
-            trim(explode(';', $contentTypes[0], 2)[0]),
-        );
-
-        if ($mediaType !== 'application/json') {
-            return self::unsupportedMediaType();
-        }
-
         try {
-            // $document = JsonObjectDecoder::decode($request->body());
-            $document = JsonObjectDecoder::decode(
-                $request->body(),
+            $document = JsonRequestDecoder::decode(
+                $request,
                 bigIntegersAsStrings: false,
+            );
+        } catch (UnsupportedJsonMediaTypeException) {
+            return ProblemResponseFactory::create(
+                415,
+                'Unsupported Media Type',
+                'Use application/json without Content-Encoding.',
             );
         } catch (InvalidJsonException) {
             return ProblemResponseFactory::create(
@@ -64,14 +53,5 @@ final class JsonGreetingHandler implements RequestHandler
         return ResponseFactory::json([
             'greeting' => $input->style->greet($input->name),
         ]);
-    }
-
-    private static function unsupportedMediaType(): Response
-    {
-        return ProblemResponseFactory::create(
-            415,
-            'Unsupported Media Type',
-            'Use application/json without Content-Encoding.',
-        );
     }
 }
