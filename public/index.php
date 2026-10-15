@@ -2,12 +2,13 @@
 
 declare(strict_types=1);
 
-use App\Http\ResponsePolicy;
+use App\Http\HttpApplicationFactory;
+use App\Http\HttpApplicationRunner;
 use App\Logging\ExceptionReporter;
+use Flint\Foundation\Application;
 use Flint\Http\Exception\RequestBodyTooLargeException;
 use Flint\Http\Output\PhpResponseOutput;
 use Flint\Http\PhpRequestFactory;
-use Flint\Http\RequestHandler;
 use Flint\Http\Response;
 use Flint\Http\ResponseEmitter;
 use Flint\Http\ResponseFactory;
@@ -22,42 +23,45 @@ $reporter = new ExceptionReporter(
     },
 );
 
-$respond = static function (): Response {
-    $handler = require dirname(__DIR__) . '/bootstrap/http.php';
-
-    if (! $handler instanceof RequestHandler) {
-        throw new RuntimeException('HTTP bootstrap returned an invalid handler.');
-    }
-
-    try {
-        $request = new PhpRequestFactory()->capture();
-    } catch (RequestBodyTooLargeException) {
-        return ResponseFactory::text('Payload too large', 413);
-    } catch (InvalidArgumentException) {
-        return ResponseFactory::text('Bad request', 400);
-    }
-
-    return $handler->handle($request);
-};
-
-try {
-    $response = $respond();
-} catch (Throwable $exception) {
-    try {
-        $reporter->reportUncaught($exception);
-    } catch (Throwable) {
-        // Reporting failure must not prevent selection of an error response.
-        error_log(
-            '{"event":"http.reporting_failed",'
-            . '"message":"Could not report an entry-point exception."}',
-        );
-    }
-
-    $response = ResponseFactory::text('Internal server error', 500);
-}
-
-$response = ResponsePolicy::apply($response);
-
 $emitter = new ResponseEmitter(new PhpResponseOutput());
 
-$emitter->emit($response,headRequest: $headRequest,);
+$runner = new HttpApplicationRunner(
+    emit: static function (Response $response) use (
+        $emitter,
+        $headRequest,
+    ): void {
+        $emitter->emit($response, headRequest: $headRequest);
+    },
+    report: $reporter->reportUncaught(...),
+);
+
+try {
+    $application = require dirname(__DIR__) . '/bootstrap/app.php';
+
+    if (!$application instanceof Application) {
+        throw new RuntimeException(
+            'Application bootstrap returned an invalid value.',
+        );
+    }
+} catch (Throwable $exception) {
+    $runner->reportBootstrapFailure($exception);
+
+    return;
+}
+
+$runner->run(
+    $application,
+    static function (Application $running): Response {
+        $handler = HttpApplicationFactory::handler($running);
+
+        try {
+            $request = new PhpRequestFactory()->capture();
+        } catch (RequestBodyTooLargeException) {
+            return ResponseFactory::text('Payload too large', 413);
+        } catch (InvalidArgumentException) {
+            return ResponseFactory::text('Bad request', 400);
+        }
+
+        return $handler->handle($request);
+    },
+);

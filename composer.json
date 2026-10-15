@@ -112,7 +112,8 @@
             "@test:http-failure"
         ],
         "test:query-boundary-bootstrap": "@php tests/query-boundary-bootstrap.php",
-        "test:http-application-ownership": "@php tests/http-application-ownership.php"        
+        "test:http-application-ownership": "@php tests/http-application-ownership.php",
+        "test:http-application-runner": "@php tests/http-application-runner.php"        
     },
     "config": {
         "sort-packages": true
