@@ -56,10 +56,12 @@ final class GreetingHandler implements RequestHandler
             return ResponseFactory::text('Bad request', 400);
         }
 
+        $greeting = $style->greet($name);
+
         return ResponseFactory::json([
             'greeting' => implode(
                 ' ',
-                array_fill(0, $repeat, $style->greet($name)),
+                array_fill(0, $repeat, $greeting),
             ),
         ]);
     }

@@ -493,6 +493,37 @@ check_redirect_headers
 check_response POST /health-redirect 405 'Method not allowed'
 check_response GET /health 200 '{"status":"ok"}'
 
+# Typed handler options.
+check_response GET \
+    '/hello/Ada?repeat=2' \
+    200 \
+    '{"greeting":"Hello, Ada Hello, Ada"}'
+
+check_response HEAD \
+    '/hello/Ada?repeat=2' \
+    200 \
+    ''
+
+check_response GET \
+    '/hello/Ada?repeat=02' \
+    400 \
+    'Bad request'
+
+check_response GET \
+    '/hello/Ada?repeat=0' \
+    400 \
+    'Bad request'
+
+check_response GET \
+    '/hello/Ada?repeat=4' \
+    400 \
+    'Bad request'
+
+check_response GET \
+    '/hello/Ada?style=formal&repeat=3' \
+    200 \
+    '{"greeting":"Welcome, Ada Welcome, Ada Welcome, Ada"}'
+    
 # JSON greeting responses.
 json_bad_request='{"type":"about:blank","title":"Bad Request","status":400,"detail":"The body must contain a valid JSON object."}'
 json_invalid_fields='{"type":"about:blank","title":"Unprocessable Content","status":422,"invalid_fields":["name"]}'

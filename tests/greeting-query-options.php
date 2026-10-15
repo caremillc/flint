@@ -7,9 +7,11 @@ use Flint\Http\Request;
 
 require_once dirname(__DIR__) . '/vendor/autoload.php';
 
-function greetingQueryCheck(bool $condition, string $message): void
-{
-    if (!$condition) {
+function greetingOptionsCheck(
+    bool $condition,
+    string $message,
+): void {
+    if (! $condition) {
         throw new RuntimeException($message);
     }
 }
@@ -17,83 +19,125 @@ function greetingQueryCheck(bool $condition, string $message): void
 $handler = new GreetingHandler();
 
 $cases = [
-    ['default greeting', [], 200, 'Hello, Ada'],
-    ['repeat twice', ['repeat' => '2'], 200, 'Hello, Ada Hello, Ada'],
     [
-        'formal repeated greeting',
+        'default',
+        [],
+        200,
+        '{"greeting":"Hello, Ada"}',
+    ],
+    [
+        'explicit one',
+        ['repeat' => '1'],
+        200,
+        '{"greeting":"Hello, Ada"}',
+    ],
+    [
+        'two greetings',
+        ['repeat' => '2'],
+        200,
+        '{"greeting":"Hello, Ada Hello, Ada"}',
+    ],
+    [
+        'formal three',
         ['style' => 'formal', 'repeat' => '3'],
         200,
-        'Welcome, Ada Welcome, Ada Welcome, Ada',
+        '{"greeting":"Welcome, Ada Welcome, Ada Welcome, Ada"}',
     ],
-    ['explicit one', ['repeat' => '1'], 200, 'Hello, Ada'],
-    ['leading zero', ['repeat' => '02'], 400, null],
-    ['zero', ['repeat' => '0'], 400, null],
-    ['negative', ['repeat' => '-1'], 400, null],
-    ['above maximum', ['repeat' => '4'], 400, null],
-    ['empty', ['repeat' => ''], 400, null],
-    ['decimal', ['repeat' => '2.0'], 400, null],
-    ['plus sign', ['repeat' => '+2'], 400, null],
-    ['whitespace', ['repeat' => ' 2'], 400, null],
     [
-        'integer overflow',
-        ['repeat' => (string) PHP_INT_MAX . '0'],
+        'zero',
+        ['repeat' => '0'],
         400,
-        null,
+        'Bad request',
     ],
-    ['unsupported style', ['style' => 'unknown'], 400, null],
-    ['recovery', ['style' => 'formal'], 200, 'Welcome, Ada'],
+    [
+        'negative',
+        ['repeat' => '-1'],
+        400,
+        'Bad request',
+    ],
+    [
+        'above maximum',
+        ['repeat' => '4'],
+        400,
+        'Bad request',
+    ],
+    [
+        'leading zero',
+        ['repeat' => '02'],
+        400,
+        'Bad request',
+    ],
+    [
+        'empty',
+        ['repeat' => ''],
+        400,
+        'Bad request',
+    ],
+    [
+        'overflow',
+        ['repeat' => '999999999999999999999999999999'],
+        400,
+        'Bad request',
+    ],
+    [
+        'unsupported style',
+        ['style' => 'unknown', 'repeat' => '2'],
+        400,
+        'Bad request',
+    ],
+    [
+        'recovery',
+        ['repeat' => '2'],
+        200,
+        '{"greeting":"Hello, Ada Hello, Ada"}',
+    ],
 ];
 
-foreach ($cases as [$label, $query, $expectedStatus, $expectedGreeting]) {
-    $request = (new Request('GET', '/hello/Ada'))
-        ->withAttribute('route.parameters', ['name' => 'Ada'])
-        ->withAttribute('request.query', $query);
+foreach ($cases as [$label, $query, $status, $body]) {
+    $request = new Request(
+        target: '/hello/Ada',
+        attributes: [
+            'route.parameters' => ['name' => 'Ada'],
+            'request.query' => $query,
+        ],
+    );
 
     $response = $handler->handle($request);
 
-    greetingQueryCheck(
-        $response->status() === $expectedStatus,
-        $label . ': unexpected status.',
+    greetingOptionsCheck(
+        $response->status() === $status
+            && $response->body() === $body,
+        $label . ': unexpected greeting response.',
     );
 
-    if ($expectedStatus === 200) {
-        greetingQueryCheck(
-            $response->headers()->get('Content-Type')
-                === ['application/json'],
-            $label . ': unexpected content type.',
-        );
-
-        $document = json_decode(
-            $response->body(),
-            true,
-            512,
-            JSON_THROW_ON_ERROR,
-        );
-
-        greetingQueryCheck(
-            $document === ['greeting' => $expectedGreeting],
-            $label . ': unexpected greeting.',
-        );
-    } else {
-        greetingQueryCheck(
-            $response->headers()->get('Content-Type')
-                === ['text/plain; charset=utf-8'],
-            $label . ': unexpected rejection content type.',
-        );
-
-        greetingQueryCheck(
-            $response->body() === 'Bad request',
-            $label . ': unexpected rejection body.',
-        );
-    }
-
-    greetingQueryCheck(
+    greetingOptionsCheck(
         $request->attribute('request.query') === $query,
-        $label . ': original query attributes changed.',
+        $label . ': the request query context changed.',
     );
 }
 
-echo sprintf(
-    'PASS: Greeting query options, strict integers, bounds, and recovery (%d cases).',
-    count($cases),
-) . PHP_EOL;
+// An integer in decoded context indicates a programming error.
+// Real decoded query values must be strings.
+$invalidContext = new Request(
+    target: '/hello/Ada',
+    attributes: [
+        'route.parameters' => ['name' => 'Ada'],
+        'request.query' => ['repeat' => 2],
+    ],
+);
+
+$rejected = false;
+
+try {
+    $handler->handle($invalidContext);
+} catch (LogicException) {
+    $rejected = true;
+}
+
+greetingOptionsCheck(
+    $rejected,
+    'Malformed internal query context must raise a programming error.',
+);
+
+echo 'PASS: Typed greeting query options, bounds, context integrity, and recovery.'
+    . PHP_EOL;

@@ -65,6 +65,7 @@
         "test:json-limit-configuration": "@php tests/json-limit-configuration.php",
         "setup": "bash bin/setup.sh",
         "doctor": "bash bin/doctor.sh",
+        "test:greeting-query-options": "@php tests/greeting-query-options.php",
         "check": [
             "@composer validate --strict",
             "@composer dump-autoload --optimize --strict-psr --strict-ambiguous",
@@ -97,7 +98,8 @@
             "@test:route-links",
             "@test:route-access-logging",
             "@test:access-log-verifier",
-            "@test:json-limit-configuration"
+            "@test:json-limit-configuration",
+            "@test:greeting-query-options"
         ],
         "check:framework": "@composer --working-dir=framework check",
         
@@ -107,8 +109,7 @@
             "@test:http",
             "@test:http-application",
             "@test:http-failure"
-        ],
-        "test:greeting-query-options": "@php tests/greeting-query-options.php"
+        ]        
     },
     "config": {
         "sort-packages": true
