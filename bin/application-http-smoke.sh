@@ -569,6 +569,29 @@ check_json_response \
     'application/json' \
     '/api/v1/hello'
 
+# The greeting endpoint accepts at most 4096 JSON body bytes.
+json_body_at_limit="$(php -r '
+$body = "{\"name\":\"Ada\"}";
+echo $body, str_repeat(" ", 4096 - strlen($body));
+')"
+
+json_body_too_large='{"type":"about:blank","title":"Content Too Large","status":413,"detail":"The JSON body must not exceed 4096 bytes."}'
+
+check_json_response \
+    200 \
+    '{"greeting":"Hello, Ada"}' \
+    "$json_body_at_limit"
+
+check_json_response \
+    413 \
+    "$json_body_too_large" \
+    "${json_body_at_limit} "
+
+check_json_response \
+    200 \
+    '{"greeting":"Welcome, Grace"}' \
+    '{"name":"Grace","style":"formal"}'
+    
 check_response POST /api/v1/health 405 'Method not allowed'
 check_response GET /api/v1/missing 404 'Not found'
 
