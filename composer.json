@@ -63,6 +63,8 @@
         "test:route-access-logging": "@php tests/route-access-logging.php",
         "test:access-log-verifier": "@php tests/access-log-verifier.php",
         "test:json-limit-configuration": "@php tests/json-limit-configuration.php",
+        "setup": "bash bin/setup.sh",
+        "doctor": "bash bin/doctor.sh",
         "check": [
             "@composer validate --strict",
             "@composer dump-autoload --optimize --strict-psr --strict-ambiguous",
