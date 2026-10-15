@@ -159,6 +159,9 @@ expected_route_name() {
         'HEAD /api/v1/hello/Ada-Lovelace')
             printf '%s' 'api.v1.greeting.show'
             ;;
+        'GET /health-redirect'|'HEAD /health-redirect')
+            printf '%s' 'health.redirect'
+            ;;
         'GET /links'|'HEAD /links')
             printf '%s' 'links'
             ;;
@@ -386,6 +389,36 @@ check_capture_response() {
     echo "PASS: POST /health, capture boundary -> $status"
 }
 
+check_redirect_headers() {
+    local location
+    local length
+
+    location="$(awk '
+        tolower($1) == "location:" {
+            sub(/^[^:]*:[ \t]*/, "")
+            print
+        }
+    ' "$temporary_dir/normalized-headers")"
+
+    [ "$location" = '/health' ] \
+        || fail "Redirect must contain exactly one Location: /health header."
+
+    length="$(awk '
+        tolower($1) == "content-length:" {
+            sub(/^[^:]*:[ \t]*/, "")
+            print
+        }
+    ' "$temporary_dir/normalized-headers")"
+
+    [ "$length" = 0 ] \
+        || fail "Redirect must have Content-Length: 0."
+
+    if grep -Eiq '^transfer-encoding:' \
+        "$temporary_dir/normalized-headers"; then
+        fail "Redirect must not contain Transfer-Encoding."
+    fi
+}
+
 # Basic application routes.
 check_response GET / 200 "$application_name"
 check_response GET /health 200 '{"status":"ok"}'
@@ -415,6 +448,18 @@ check_response GET '/hello/Ada?style=formal' 200 '{"greeting":"Welcome, Ada"}'
 check_response HEAD '/hello/Ada?style=formal' 200 ''
 check_response GET '/hello/Ada?style=unknown' 400 'Bad request'
 check_response GET '/hello/Ada?style=' 400 'Bad request'
+
+# Observe the redirect itself; check_response does not enable curl --location.
+check_response GET /health-redirect 303 ''
+check_redirect_headers
+
+check_response HEAD /health-redirect 303 ''
+check_redirect_headers
+
+check_response POST /health-redirect 405 'Method not allowed'
+
+# Retrieve the redirect destination as a separate request.
+check_response GET /health 200 '{"status":"ok"}'
 
 json_bad_request='{"type":"about:blank","title":"Bad Request","status":400,"detail":"The body must contain a valid JSON object."}'
 json_invalid_fields='{"type":"about:blank","title":"Unprocessable Content","status":422,"invalid_fields":["name"]}'
@@ -566,6 +611,8 @@ check_response GET \
     '/api/v1/hello/Ada-Lovelace?style=formal' \
     200 \
     '{"greeting":"Welcome, Ada-Lovelace"}'
+
+
 
 # Disable MSYS argument conversion only for these HTTP-path arguments.
 MSYS2_ARG_CONV_EXCL='*' php bin/http-head-check.php \

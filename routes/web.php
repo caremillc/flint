@@ -1,9 +1,10 @@
 <?php
 
-declare (strict_types = 1);
+declare(strict_types=1);
 
 use App\Http\Handlers\GreetingHandler;
 use App\Http\Handlers\HealthHandler;
+use App\Http\Handlers\HealthRedirectHandler;
 use App\Http\Handlers\HomeHandler;
 use App\Http\Handlers\JsonGreetingHandler;
 use App\Http\Handlers\LinksHandler;
@@ -26,14 +27,17 @@ return static function (
         $container->instance(Configuration::class, $configuration);
     }
 
-    foreach ([
-        HomeHandler::class,
-        HealthHandler::class,
-        GreetingHandler::class,
-        JsonGreetingHandler::class,
-        LinksHandler::class,
-        NoStoreMiddleware::class,
-    ] as $class) {
+    foreach (
+        [
+            HomeHandler::class,
+            HealthHandler::class,
+            GreetingHandler::class,
+            JsonGreetingHandler::class,
+            LinksHandler::class,
+            HealthRedirectHandler::class,
+            NoStoreMiddleware::class,
+        ] as $class
+    ) {
         if (! $container->has($class)) {
             $container->autowire($class);
         }
@@ -44,6 +48,13 @@ return static function (
         '/health',
         new ContainerRequestHandler($container, HealthHandler::class),
         'health',
+    );
+
+    $router->addHandler(
+        'GET',
+        '/health-redirect',
+        new ContainerRequestHandler($container, HealthRedirectHandler::class,),
+        'health.redirect',
     );
 
     $router->addHandler(
