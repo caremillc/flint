@@ -6,4 +6,5 @@ return [
     'app.name' => 'Flint',
     'app.debug' => false,
     'database.port' => 3306,
+    'http.json.max_body_bytes' => 4096,
 ];

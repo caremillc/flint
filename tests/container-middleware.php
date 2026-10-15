@@ -67,7 +67,8 @@ $container->bind(
     ): JsonGreetingHandler {
         ++$handlerConstructions;
 
-        return new JsonGreetingHandler();
+         return new JsonGreetingHandler(new Configuration(['http.json.max_body_bytes' => 4096,]));
+        
     },
 );
 
@@ -77,6 +78,7 @@ $registerRoutes(
     $router,
     Configuration::fromLayers([
         'app.name' => 'Container middleware application',
+        'http.json.max_body_bytes' => 4096,
     ]),
     $container,
 );

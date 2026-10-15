@@ -28,6 +28,7 @@ $registerRoutes(
     $router,
     Configuration::fromLayers([
         'app.name' => 'Route group application',
+        'http.json.max_body_bytes' => 4096,
     ]),
 );
 

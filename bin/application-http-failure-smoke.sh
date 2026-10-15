@@ -8,6 +8,14 @@ cd "$project_root"
 command -v php >/dev/null
 command -v curl >/dev/null
 
+JSON_MAX_BODY_BYTES=4096 \
+
+env -u PHP_CLI_SERVER_WORKERS \
+    APP_NAME="$application_name" \
+    APP_DEBUG=false \
+    DATABASE_PORT=0 \
+    JSON_MAX_BODY_BYTES=4096 \
+
 test -f public/index.php
 test -f bin/http-head-check.php
 

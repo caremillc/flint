@@ -2,6 +2,8 @@
 
 set -euo pipefail
 
+application_name='Flint Failure Smoke'
+
 project_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$project_root"
 
@@ -12,6 +14,7 @@ test -f public/index.php
 
 temporary_dir="$(mktemp -d)"
 server_pid=""
+request_count=0
 
 : >"$temporary_dir/expected-access.tsv"
 
@@ -29,7 +32,7 @@ trap 'exit 130' INT
 trap 'exit 143' TERM
 
 fail() {
-    echo "FAIL: $*" >&2
+    printf 'FAIL: %s\n' "$*" >&2
 
     if [ -f "$temporary_dir/server.log" ]; then
         cat "$temporary_dir/server.log" >&2
@@ -38,7 +41,7 @@ fail() {
     exit 1
 }
 
-# Ask the operating system for an available local port.
+# Reserve an available local port.
 address="$(php -r '
 $listener = stream_socket_server("tcp://127.0.0.1:0", $code, $message);
 
@@ -51,20 +54,22 @@ $address = stream_socket_get_name($listener, false);
 fclose($listener);
 
 if ($address === false) {
+    fwrite(STDERR, "Could not determine the test address.\n");
     exit(1);
 }
 
 echo $address;
 ')"
 
+# Assign these before the server-launch environment references them.
 application_name="Flint Smoke $(php -r 'echo bin2hex(random_bytes(8));')"
 base_url="http://$address"
 
-# Use predictable configuration for this server process only.
 env -u PHP_CLI_SERVER_WORKERS \
     APP_NAME="$application_name" \
     APP_DEBUG=false \
     DATABASE_PORT=3306 \
+    JSON_MAX_BODY_BYTES=4096 \
     php \
         -d display_errors=0 \
         -d log_errors=1 \
@@ -105,8 +110,6 @@ if [ "$ready" != true ]; then
     fail "Application server did not become ready."
 fi
 
-request_count=0
-
 expected_route_name() {
     local method="$1"
     local target="$2"
@@ -131,13 +134,15 @@ expected_route_name() {
             ;;
     esac
 
-    # Explicit expectations for this smoke suite's registered routes.
     case "$method $path" in
         'GET /')
             printf '%s' 'home'
             ;;
         'GET /health'|'HEAD /health')
             printf '%s' 'health'
+            ;;
+        'GET /health-redirect'|'HEAD /health-redirect')
+            printf '%s' 'health.redirect'
             ;;
         'GET /hello/Ada'|\
         'HEAD /hello/Ada'|\
@@ -159,9 +164,6 @@ expected_route_name() {
         'HEAD /api/v1/hello/Ada-Lovelace')
             printf '%s' 'api.v1.greeting.show'
             ;;
-        'GET /health-redirect'|'HEAD /health-redirect')
-            printf '%s' 'health.redirect'
-            ;;
         'GET /links'|'HEAD /links')
             printf '%s' 'links'
             ;;
@@ -182,8 +184,8 @@ check_response() {
     local content_type="${6-application/json}"
     local status
     local request_id
-    local -a options
     local expected_route
+    local -a options
 
     : >"$temporary_dir/body"
 
@@ -210,7 +212,8 @@ check_response() {
         )
     fi
 
-    # Send body bytes through stdin rather than native Windows arguments.
+    # Preserve UTF-8 body bytes by sending them through stdin.
+    # Redirects are deliberately not followed.
     status="$(
         printf '%s' "$request_body" |
             curl "${options[@]}" "$base_url$path"
@@ -252,7 +255,7 @@ check_response() {
         fail "$method $path: expected exactly one valid request ID."
     fi
 
-   expected_route="$(
+    expected_route="$(
         expected_route_name "$method" "$path" "$expected_status"
     )" || fail "$method $path: missing route-log expectation."
 
@@ -328,6 +331,36 @@ check_json_response() {
         || fail "POST $target: missing no-store policy."
 }
 
+check_redirect_headers() {
+    local location
+    local length
+
+    location="$(awk '
+        tolower($1) == "location:" {
+            sub(/^[^:]*:[ \t]*/, "")
+            print
+        }
+    ' "$temporary_dir/normalized-headers")"
+
+    [ "$location" = '/health' ] \
+        || fail "Redirect must contain exactly one Location: /health header."
+
+    length="$(awk '
+        tolower($1) == "content-length:" {
+            sub(/^[^:]*:[ \t]*/, "")
+            print
+        }
+    ' "$temporary_dir/normalized-headers")"
+
+    [ "$length" = 0 ] \
+        || fail "Redirect must have Content-Length: 0."
+
+    if grep -Eiq '^transfer-encoding:' \
+        "$temporary_dir/normalized-headers"; then
+        fail "Redirect must not contain Transfer-Encoding."
+    fi
+}
+
 check_capture_response() {
     local content_type="$1"
     local body_file="$2"
@@ -336,7 +369,7 @@ check_capture_response() {
     local status
     local curl_body_file="$body_file"
 
-    # Make the filename inside curl's @file argument usable on Windows.
+    # Convert the filename embedded in curl's @file argument on Windows.
     if command -v cygpath >/dev/null 2>&1; then
         curl_body_file="$(cygpath -m "$body_file")"
     fi
@@ -389,36 +422,6 @@ check_capture_response() {
     echo "PASS: POST /health, capture boundary -> $status"
 }
 
-check_redirect_headers() {
-    local location
-    local length
-
-    location="$(awk '
-        tolower($1) == "location:" {
-            sub(/^[^:]*:[ \t]*/, "")
-            print
-        }
-    ' "$temporary_dir/normalized-headers")"
-
-    [ "$location" = '/health' ] \
-        || fail "Redirect must contain exactly one Location: /health header."
-
-    length="$(awk '
-        tolower($1) == "content-length:" {
-            sub(/^[^:]*:[ \t]*/, "")
-            print
-        }
-    ' "$temporary_dir/normalized-headers")"
-
-    [ "$length" = 0 ] \
-        || fail "Redirect must have Content-Length: 0."
-
-    if grep -Eiq '^transfer-encoding:' \
-        "$temporary_dir/normalized-headers"; then
-        fail "Redirect must not contain Transfer-Encoding."
-    fi
-}
-
 # Basic application routes.
 check_response GET / 200 "$application_name"
 check_response GET /health 200 '{"status":"ok"}'
@@ -443,13 +446,44 @@ check_response GET '/health?=value' 400 'Bad request'
 check_response HEAD '/health?name=Ada&name=Grace' 400 ''
 check_response GET /health 200 '{"status":"ok"}'
 
-# Handler-level query options.
+# Handler-level greeting style.
 check_response GET '/hello/Ada?style=formal' 200 '{"greeting":"Welcome, Ada"}'
 check_response HEAD '/hello/Ada?style=formal' 200 ''
 check_response GET '/hello/Ada?style=unknown' 400 'Bad request'
 check_response GET '/hello/Ada?style=' 400 'Bad request'
 
-# Observe the redirect itself; check_response does not enable curl --location.
+# Typed greeting repetition options.
+check_response GET \
+    '/hello/Ada?repeat=2' \
+    200 \
+    '{"greeting":"Hello, Ada Hello, Ada"}'
+
+check_response HEAD \
+    '/hello/Ada?repeat=2' \
+    200 \
+    ''
+
+check_response GET \
+    '/hello/Ada?repeat=02' \
+    400 \
+    'Bad request'
+
+check_response GET \
+    '/hello/Ada?repeat=0' \
+    400 \
+    'Bad request'
+
+check_response GET \
+    '/hello/Ada?repeat=4' \
+    400 \
+    'Bad request'
+
+check_response GET \
+    '/hello/Ada?style=formal&repeat=3' \
+    200 \
+    '{"greeting":"Welcome, Ada Welcome, Ada Welcome, Ada"}'
+
+# Local redirects generated from named routes.
 check_response GET /health-redirect 303 ''
 check_redirect_headers
 
@@ -457,28 +491,38 @@ check_response HEAD /health-redirect 303 ''
 check_redirect_headers
 
 check_response POST /health-redirect 405 'Method not allowed'
-
-# Retrieve the redirect destination as a separate request.
 check_response GET /health 200 '{"status":"ok"}'
 
+# JSON greeting responses.
 json_bad_request='{"type":"about:blank","title":"Bad Request","status":400,"detail":"The body must contain a valid JSON object."}'
 json_invalid_fields='{"type":"about:blank","title":"Unprocessable Content","status":422,"invalid_fields":["name"]}'
 json_invalid_style='{"type":"about:blank","title":"Unprocessable Content","status":422,"invalid_fields":["style"]}'
 json_unsupported_media='{"type":"about:blank","title":"Unsupported Media Type","status":415,"detail":"Use application/json without Content-Encoding."}'
+json_body_too_large='{"type":"about:blank","title":"Content Too Large","status":413,"detail":"The JSON body must not exceed 4096 bytes."}'
 
-check_json_response 200 '{"greeting":"Hello, Ada"}' \
+check_json_response \
+    200 \
+    '{"greeting":"Hello, Ada"}' \
     '{"name":"Ada"}'
 
-check_json_response 200 '{"greeting":"Welcome, Ada"}' \
+check_json_response \
+    200 \
+    '{"greeting":"Welcome, Ada"}' \
     '{"name":"Ada","style":"formal"}'
 
-check_json_response 400 "$json_bad_request" \
+check_json_response \
+    400 \
+    "$json_bad_request" \
     '{"name":'
 
-check_json_response 400 "$json_bad_request" \
+check_json_response \
+    400 \
+    "$json_bad_request" \
     '[]'
 
-check_json_response 422 "$json_invalid_fields" \
+check_json_response \
+    422 \
+    "$json_invalid_fields" \
     '{"name":42}'
 
 check_json_response \
@@ -496,18 +540,19 @@ check_json_response \
     '{"greeting":"Hello, 123456789012345678901234567890"}' \
     '{"name":"123456789012345678901234567890"}'
 
-check_json_response 415 "$json_unsupported_media" \
+check_json_response \
+    415 \
+    "$json_unsupported_media" \
     '{"name":"Ada"}' \
     'text/plain'
 
-# Media-type matching is case-insensitive; parameters are accepted.
 check_json_response \
     200 \
     '{"greeting":"Hello, Ada"}' \
     '{"name":"Ada"}' \
     'Application/JSON; charset=utf-8'
 
-# Exactly 100 ASCII bytes are accepted.
+# Exactly 100 ASCII name bytes are accepted.
 ascii_name="$(php -r 'echo str_repeat("a", 100);')"
 
 check_json_response \
@@ -515,14 +560,12 @@ check_json_response \
     "{\"greeting\":\"Hello, $ascii_name\"}" \
     "{\"name\":\"$ascii_name\"}"
 
-# One byte beyond the limit is rejected.
 check_json_response \
     422 \
     "$json_invalid_fields" \
     "{\"name\":\"${ascii_name}a\"}"
 
-# U+00E9 occupies two bytes in UTF-8.
-# Generate bytes explicitly so the script's file encoding is irrelevant.
+# U+00E9 occupies two UTF-8 bytes.
 unicode_name="$(php -r 'echo str_repeat("\xC3\xA9", 50);')"
 unicode_extra="$(php -r 'echo "\xC3\xA9";')"
 
@@ -536,18 +579,34 @@ check_json_response \
     "$json_invalid_fields" \
     "{\"name\":\"${unicode_name}${unicode_extra}\"}"
 
-# Confirm another valid request succeeds after rejection.
+check_json_response \
+    200 \
+    '{"greeting":"Welcome, Grace"}' \
+    '{"name":"Grace","style":"formal"}'
+
+# Endpoint-specific JSON body limit: 4096 bytes.
+json_body_at_limit="$(php -r '
+$body = "{\"name\":\"Ada\"}";
+echo $body, str_repeat(" ", 4096 - strlen($body));
+')"
+
+check_json_response \
+    200 \
+    '{"greeting":"Hello, Ada"}' \
+    "$json_body_at_limit"
+
+check_json_response \
+    413 \
+    "$json_body_too_large" \
+    "${json_body_at_limit} "
+
 check_json_response \
     200 \
     '{"greeting":"Welcome, Grace"}' \
     '{"name":"Grace","style":"formal"}'
 
 # Versioned route groups.
-check_response \
-    GET \
-    /api/v1/health \
-    200 \
-    '{"status":"ok"}'
+check_response GET /api/v1/health 200 '{"status":"ok"}'
 
 grep -Eiq '^cache-control: no-store$' \
     "$temporary_dir/normalized-headers" \
@@ -569,35 +628,11 @@ check_json_response \
     'application/json' \
     '/api/v1/hello'
 
-# The greeting endpoint accepts at most 4096 JSON body bytes.
-json_body_at_limit="$(php -r '
-$body = "{\"name\":\"Ada\"}";
-echo $body, str_repeat(" ", 4096 - strlen($body));
-')"
-
-json_body_too_large='{"type":"about:blank","title":"Content Too Large","status":413,"detail":"The JSON body must not exceed 4096 bytes."}'
-
-check_json_response \
-    200 \
-    '{"greeting":"Hello, Ada"}' \
-    "$json_body_at_limit"
-
-check_json_response \
-    413 \
-    "$json_body_too_large" \
-    "${json_body_at_limit} "
-
-check_json_response \
-    200 \
-    '{"greeting":"Welcome, Grace"}' \
-    '{"name":"Grace","style":"formal"}'
-    
 check_response POST /api/v1/health 405 'Method not allowed'
 check_response GET /api/v1/missing 404 'Not found'
 
 # Constrained route parameters.
-check_response \
-    GET \
+check_response GET \
     /api/v1/hello/Ada-Lovelace \
     200 \
     '{"greeting":"Hello, Ada-Lovelace"}'
@@ -608,8 +643,7 @@ grep -Eiq '^cache-control: no-store$' \
 
 check_response HEAD /api/v1/hello/Ada-Lovelace 200 ''
 
-check_response \
-    GET \
+check_response GET \
     '/api/v1/hello/Ada?style=formal' \
     200 \
     '{"greeting":"Welcome, Ada"}'
@@ -618,7 +652,7 @@ check_response GET /api/v1/hello/Ada_Lovelace 404 'Not found'
 check_response GET /api/v1/hello/a%2Fb 404 'Not found'
 check_response POST /api/v1/hello/Ada 405 'Method not allowed'
 
-# Named-route URL generation through an injected application service.
+# Named-route URL generation.
 links_body='{"links":{"self":"/links","health":"/health","greeting":"/hello/Ada%20Lovelace?style=formal","api_health":"/api/v1/health","api_greeting":"/api/v1/hello/Ada-Lovelace?style=formal"}}'
 
 check_response GET /links 200 "$links_body"
@@ -635,9 +669,7 @@ check_response GET \
     200 \
     '{"greeting":"Welcome, Ada-Lovelace"}'
 
-
-
-# Disable MSYS argument conversion only for these HTTP-path arguments.
+# Raw HEAD checks verify that no response body bytes are emitted.
 MSYS2_ARG_CONV_EXCL='*' php bin/http-head-check.php \
     "$address" /health 200 15 \
     || fail "Raw HEAD health check failed."
@@ -648,7 +680,7 @@ MSYS2_ARG_CONV_EXCL='*' php bin/http-head-check.php \
 
 request_count=$((request_count + 2))
 
-# Prepare exact-limit and over-limit bodies for the default 1 MiB reader.
+# Fixtures for the default 1 MiB request-capture limit.
 php -r '
 $limit = 1048576;
 
@@ -689,10 +721,10 @@ check_capture_response \
     400 \
     'Bad request'
 
-# The same server must handle a normal request after capture rejections.
+# Recovery after capture-layer rejection.
 check_response GET /health 200 '{"status":"ok"}'
 
-# Only check_response() writes entries into the correlation manifest.
+# Only check_response() adds entries to this four-column manifest.
 php bin/verify-access-log.php \
     "$temporary_dir/server.log" \
     "$temporary_dir/expected-access.tsv" \

@@ -29,6 +29,7 @@ if (!$registerRoutes instanceof Closure) {
 
 $configuration = Configuration::fromLayers([
     'app.name' => 'First application',
+    'http.json.max_body_bytes' => 4096,
 ]);
 
 $container = new Container();
@@ -144,6 +145,7 @@ $registerRoutes(
     $secondRouter,
     Configuration::fromLayers([
         'app.name' => 'Second application',
+        'http.json.max_body_bytes' => 4096,
     ]),
 );
 

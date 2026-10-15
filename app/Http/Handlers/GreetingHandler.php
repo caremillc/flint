@@ -1,51 +1,44 @@
 <?php
 
-declare (strict_types = 1);
+declare(strict_types=1);
 
 namespace App\Http\Handlers;
 
 use App\Greeting\GreetingStyle;
+use Flint\Http\QueryParameters;
 use Flint\Http\Request;
 use Flint\Http\RequestHandler;
 use Flint\Http\Response;
 use Flint\Http\ResponseFactory;
 use Flint\Routing\RouteParameters;
+use InvalidArgumentException;
 use LogicException;
 
 final class GreetingHandler implements RequestHandler
 {
     public function handle(Request $request): Response
     {
-        // $parameters = $request->attribute('route.parameters');
+        $name = RouteParameters::fromRequest($request)->get('name');
 
-        // if (
-        //     !is_array($parameters)
-        //     || !is_string($parameters['name'] ?? null)
-        //     || $parameters['name'] === ''
-        // ) {
-        //     throw new LogicException(
-        //         'The greeting route requires a non-empty name parameter.',
-        //     );
-        // }
+        $values = $request->attribute('request.query');
 
-        $name  = RouteParameters::fromRequest($request)->get('name');
-        $query = $request->attribute('request.query');
-
-        if (! is_array($query)) {
+        if (! is_array($values)) {
             throw new LogicException(
-                'The greeting handler requires parsed query parameters.',
+                'Greeting handling requires decoded query parameters.',
             );
         }
 
-        $styleValue = array_key_exists('style', $query)
-            ? $query['style']
-            : GreetingStyle::Friendly->value;
-
-        if (! is_string($styleValue)) {
+        try {
+            $query = new QueryParameters($values);
+        } catch (InvalidArgumentException $exception) {
             throw new LogicException(
-                'Parsed greeting style must be a string.',
+                'Decoded query parameters contain invalid internal values.',
+                previous: $exception,
             );
         }
+
+        $styleValue = $query->string('style')
+            ?? GreetingStyle::Friendly->value;
 
         $style = GreetingStyle::tryFrom($styleValue);
 
@@ -53,12 +46,21 @@ final class GreetingHandler implements RequestHandler
             return ResponseFactory::text('Bad request', 400);
         }
 
-        // return ResponseFactory::json([
-        //     'greeting' => $style->greet($parameters['name']),
-        // ]);
+        try {
+            $repeat = $query->integer('repeat') ?? 1;
+        } catch (InvalidArgumentException) {
+            return ResponseFactory::text('Bad request', 400);
+        }
+
+        if ($repeat < 1 || $repeat > 3) {
+            return ResponseFactory::text('Bad request', 400);
+        }
 
         return ResponseFactory::json([
-            'greeting' => $style->greet($name),
+            'greeting' => implode(
+                ' ',
+                array_fill(0, $repeat, $style->greet($name)),
+            ),
         ]);
     }
 }

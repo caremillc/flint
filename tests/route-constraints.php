@@ -48,6 +48,7 @@ $registerRoutes(
     $router,
     Configuration::fromLayers([
         'app.name' => 'Constrained routes',
+        'http.json.max_body_bytes' => 4096,
     ]),
     $container,
 );

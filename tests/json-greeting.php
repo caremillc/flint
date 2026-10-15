@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Http\Handlers\JsonGreetingHandler;
+use Flint\Configuration\Configuration;
 use Flint\Http\Headers;
 use Flint\Http\Request;
 
@@ -17,7 +18,12 @@ function jsonGreetingCheck(
     }
 }
 
-$handler = new JsonGreetingHandler();
+// $handler = new JsonGreetingHandler();
+$handler = new JsonGreetingHandler(
+    new Configuration([
+        'http.json.max_body_bytes' => 4096,
+    ]),
+);
 
 $badRequest = [
     'type' => 'about:blank',

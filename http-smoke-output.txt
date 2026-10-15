@@ -1,0 +1,96 @@
+PASS: GET / -> 200
+PASS: GET /health -> 200
+PASS: HEAD /health -> 200
+PASS: GET /health?probe=1 -> 200
+PASS: POST /health -> 405
+PASS: GET /missing -> 404
+PASS: HEAD /missing -> 404
+PASS: GET /hello/Ada -> 200
+PASS: HEAD /hello/Ada -> 200
+PASS: POST /hello/Ada -> 405
+PASS: GET /hello/ -> 404
+PASS: GET /hello/Ada?source=test -> 200
+PASS: GET /hello/a%2Fb -> 200
+PASS: GET /health?name=Ada&name=Grace -> 400
+PASS: GET /health?name=Ada&%6Eame=Grace -> 400
+PASS: GET /health?=value -> 400
+PASS: HEAD /health?name=Ada&name=Grace -> 400
+PASS: GET /health -> 200
+PASS: GET /hello/Ada?style=formal -> 200
+PASS: HEAD /hello/Ada?style=formal -> 200
+PASS: GET /hello/Ada?style=unknown -> 400
+PASS: GET /hello/Ada?style= -> 400
+FAIL: GET /hello/Ada?repeat=2: unexpected response body.
+[Thu Oct 15 11:03:20 2026] PHP 8.5.9 Development Server (http://127.0.0.1:58917) started
+[Thu Oct 15 11:03:21 2026] 127.0.0.1:58918 Accepted
+[Thu Oct 15 11:03:21 2026] {"event":"http.request_completed","request_id":"55d6932e3291f3975517bed82fae1acd","method":"GET","route_name":"home","status":200,"duration_ms":0.866}
+[Thu Oct 15 11:03:21 2026] 127.0.0.1:58918 Closing
+[Thu Oct 15 11:03:21 2026] 127.0.0.1:58920 Accepted
+[Thu Oct 15 11:03:21 2026] {"event":"http.request_completed","request_id":"de8f9b37be19eb40c83f908650e08027","method":"GET","route_name":"home","status":200,"duration_ms":0.021}
+[Thu Oct 15 11:03:21 2026] 127.0.0.1:58920 Closing
+[Thu Oct 15 11:03:21 2026] 127.0.0.1:58921 Accepted
+[Thu Oct 15 11:03:21 2026] {"event":"http.request_completed","request_id":"e988fefeb71e554c38fa38e1ec8479f4","method":"GET","route_name":"health","status":200,"duration_ms":0.023}
+[Thu Oct 15 11:03:21 2026] 127.0.0.1:58921 Closing
+[Thu Oct 15 11:03:21 2026] 127.0.0.1:58922 Accepted
+[Thu Oct 15 11:03:21 2026] {"event":"http.request_completed","request_id":"8d6a28e055e3b17747b1f3033b753185","method":"HEAD","route_name":"health","status":200,"duration_ms":0.021}
+[Thu Oct 15 11:03:21 2026] 127.0.0.1:58922 Closing
+[Thu Oct 15 11:03:22 2026] 127.0.0.1:58923 Accepted
+[Thu Oct 15 11:03:22 2026] {"event":"http.request_completed","request_id":"3852a2dd45fe7bacced98f3a16d3f1a3","method":"GET","route_name":"health","status":200,"duration_ms":0.038}
+[Thu Oct 15 11:03:22 2026] 127.0.0.1:58923 Closing
+[Thu Oct 15 11:03:22 2026] 127.0.0.1:58924 Accepted
+[Thu Oct 15 11:03:22 2026] {"event":"http.request_completed","request_id":"0369d29536c5d1c6a982275855bf71dc","method":"POST","route_name":null,"status":405,"duration_ms":0.026}
+[Thu Oct 15 11:03:22 2026] 127.0.0.1:58924 Closing
+[Thu Oct 15 11:03:22 2026] 127.0.0.1:58925 Accepted
+[Thu Oct 15 11:03:22 2026] {"event":"http.request_completed","request_id":"60c0ae846354e8d397257d549ccf61dc","method":"GET","route_name":null,"status":404,"duration_ms":0.057}
+[Thu Oct 15 11:03:22 2026] 127.0.0.1:58925 Closing
+[Thu Oct 15 11:03:22 2026] 127.0.0.1:58926 Accepted
+[Thu Oct 15 11:03:22 2026] {"event":"http.request_completed","request_id":"abeb523ac1cd5919fb5cc288a7c87998","method":"HEAD","route_name":null,"status":404,"duration_ms":0.016}
+[Thu Oct 15 11:03:22 2026] 127.0.0.1:58926 Closing
+[Thu Oct 15 11:03:23 2026] 127.0.0.1:58927 Accepted
+[Thu Oct 15 11:03:23 2026] {"event":"http.request_completed","request_id":"8718f578af47a4fe78ffedb9934e8419","method":"GET","route_name":"greeting","status":200,"duration_ms":0.609}
+[Thu Oct 15 11:03:23 2026] 127.0.0.1:58927 Closing
+[Thu Oct 15 11:03:23 2026] 127.0.0.1:58928 Accepted
+[Thu Oct 15 11:03:23 2026] {"event":"http.request_completed","request_id":"658e0775c1fc129d44e4bd9daf7d2185","method":"HEAD","route_name":"greeting","status":200,"duration_ms":0.037}
+[Thu Oct 15 11:03:23 2026] 127.0.0.1:58928 Closing
+[Thu Oct 15 11:03:23 2026] 127.0.0.1:58929 Accepted
+[Thu Oct 15 11:03:23 2026] {"event":"http.request_completed","request_id":"c2cc21366ec054d0a64c3ad9e5781738","method":"POST","route_name":null,"status":405,"duration_ms":0.025}
+[Thu Oct 15 11:03:23 2026] 127.0.0.1:58929 Closing
+[Thu Oct 15 11:03:24 2026] 127.0.0.1:58930 Accepted
+[Thu Oct 15 11:03:24 2026] {"event":"http.request_completed","request_id":"914202729d6b3b796635d907b5b694bf","method":"GET","route_name":null,"status":404,"duration_ms":0.076}
+[Thu Oct 15 11:03:24 2026] 127.0.0.1:58930 Closing
+[Thu Oct 15 11:03:24 2026] 127.0.0.1:58931 Accepted
+[Thu Oct 15 11:03:24 2026] {"event":"http.request_completed","request_id":"a6f797ccd000d6d7945adcab986724f2","method":"GET","route_name":"greeting","status":200,"duration_ms":0.038}
+[Thu Oct 15 11:03:24 2026] 127.0.0.1:58931 Closing
+[Thu Oct 15 11:03:24 2026] 127.0.0.1:58932 Accepted
+[Thu Oct 15 11:03:24 2026] {"event":"http.request_completed","request_id":"928585c3162b1eef3507f71ce522d38b","method":"GET","route_name":"greeting","status":200,"duration_ms":0.037}
+[Thu Oct 15 11:03:24 2026] 127.0.0.1:58932 Closing
+[Thu Oct 15 11:03:24 2026] 127.0.0.1:58933 Accepted
+[Thu Oct 15 11:03:24 2026] {"event":"http.request_completed","request_id":"5f2a2f98a5b5445186b6f81ec35a798b","method":"GET","route_name":null,"status":400,"duration_ms":0.031}
+[Thu Oct 15 11:03:24 2026] 127.0.0.1:58933 Closing
+[Thu Oct 15 11:03:25 2026] 127.0.0.1:58934 Accepted
+[Thu Oct 15 11:03:25 2026] {"event":"http.request_completed","request_id":"7b7e9895c5c7300d1c42a3061dcf858a","method":"GET","route_name":null,"status":400,"duration_ms":0.019}
+[Thu Oct 15 11:03:25 2026] 127.0.0.1:58934 Closing
+[Thu Oct 15 11:03:25 2026] 127.0.0.1:58935 Accepted
+[Thu Oct 15 11:03:25 2026] {"event":"http.request_completed","request_id":"8b900340a1f52249043653db5a42b93f","method":"GET","route_name":null,"status":400,"duration_ms":0.018}
+[Thu Oct 15 11:03:25 2026] 127.0.0.1:58935 Closing
+[Thu Oct 15 11:03:25 2026] 127.0.0.1:58936 Accepted
+[Thu Oct 15 11:03:25 2026] {"event":"http.request_completed","request_id":"2895a515cd187f4bfbfedd69ab70053d","method":"HEAD","route_name":null,"status":400,"duration_ms":0.019}
+[Thu Oct 15 11:03:25 2026] 127.0.0.1:58936 Closing
+[Thu Oct 15 11:03:25 2026] 127.0.0.1:58937 Accepted
+[Thu Oct 15 11:03:25 2026] {"event":"http.request_completed","request_id":"dac159f75ece8cdc739f002a94d66a89","method":"GET","route_name":"health","status":200,"duration_ms":0.02}
+[Thu Oct 15 11:03:25 2026] 127.0.0.1:58937 Closing
+[Thu Oct 15 11:03:26 2026] 127.0.0.1:58938 Accepted
+[Thu Oct 15 11:03:26 2026] {"event":"http.request_completed","request_id":"a6a4185141bf06c8a441bd104ef16466","method":"GET","route_name":"greeting","status":200,"duration_ms":0.085}
+[Thu Oct 15 11:03:26 2026] 127.0.0.1:58938 Closing
+[Thu Oct 15 11:03:26 2026] 127.0.0.1:58939 Accepted
+[Thu Oct 15 11:03:26 2026] {"event":"http.request_completed","request_id":"d1a8aed32b4b87feefe02ef23d6e3e8e","method":"HEAD","route_name":"greeting","status":200,"duration_ms":0.04}
+[Thu Oct 15 11:03:26 2026] 127.0.0.1:58939 Closing
+[Thu Oct 15 11:03:26 2026] 127.0.0.1:58940 Accepted
+[Thu Oct 15 11:03:26 2026] {"event":"http.request_completed","request_id":"736db5eba0a0944c15f72bbaf2605ceb","method":"GET","route_name":"greeting","status":400,"duration_ms":0.051}
+[Thu Oct 15 11:03:26 2026] 127.0.0.1:58940 Closing
+[Thu Oct 15 11:03:26 2026] 127.0.0.1:58941 Accepted
+[Thu Oct 15 11:03:26 2026] {"event":"http.request_completed","request_id":"3e617c36b7a4723ea389b53ed47f8522","method":"GET","route_name":"greeting","status":400,"duration_ms":0.049}
+[Thu Oct 15 11:03:26 2026] 127.0.0.1:58941 Closing
+[Thu Oct 15 11:03:27 2026] 127.0.0.1:58942 Accepted
+[Thu Oct 15 11:03:27 2026] {"event":"http.request_completed","request_id":"2c074ad7f253e20419c170f6d50583d1","method":"GET","route_name":"greeting","status":200,"duration_ms":0.154}
+[Thu Oct 15 11:03:27 2026] 127.0.0.1:58942 Closing

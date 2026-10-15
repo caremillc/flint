@@ -6,6 +6,7 @@ namespace App\Http\Handlers;
 
 use App\Http\Input\InvalidGreetingInput;
 use App\Http\Input\JsonGreetingInput;
+use Flint\Configuration\Configuration;
 use Flint\Http\Exception\InvalidJsonException;
 use Flint\Http\Exception\JsonBodyTooLargeException;
 use Flint\Http\Exception\UnsupportedJsonMediaTypeException;
@@ -16,9 +17,16 @@ use Flint\Http\RequestHandler;
 use Flint\Http\Response;
 use Flint\Http\ResponseFactory;
 
-final class JsonGreetingHandler implements RequestHandler
+final readonly class JsonGreetingHandler implements RequestHandler
 {
-    private const MAX_BODY_BYTES = 4096;
+    private int $maxBodyBytes;
+
+    public function __construct(Configuration $configuration)
+    {
+        $this->maxBodyBytes = $configuration->integer(
+            'http.json.max_body_bytes',
+        );
+    }
 
     public function handle(Request $request): Response
     {
@@ -26,7 +34,7 @@ final class JsonGreetingHandler implements RequestHandler
             $document = JsonRequestDecoder::decode(
                 $request,
                 bigIntegersAsStrings: false,
-                maxBytes: self::MAX_BODY_BYTES,
+                maxBytes: $this->maxBodyBytes,
             );
         } catch (UnsupportedJsonMediaTypeException) {
             return ProblemResponseFactory::create(
@@ -38,7 +46,10 @@ final class JsonGreetingHandler implements RequestHandler
             return ProblemResponseFactory::create(
                 413,
                 'Content Too Large',
-                'The JSON body must not exceed 4096 bytes.',
+                sprintf(
+                    'The JSON body must not exceed %d bytes.',
+                    $this->maxBodyBytes,
+                ),
             );
         } catch (InvalidJsonException) {
             return ProblemResponseFactory::create(

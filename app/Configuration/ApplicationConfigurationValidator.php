@@ -28,5 +28,15 @@ final class ApplicationConfigurationValidator
                 'Configuration key "database.port" must be between 1 and 65535.',
             );
         }
+
+        $jsonLimit = $configuration->integer(
+            'http.json.max_body_bytes',
+        );
+
+        if ($jsonLimit < 1 || $jsonLimit > 1048576) {
+            throw new ConfigurationException(
+                'Configuration key "http.json.max_body_bytes" must be between 1 and 1048576.',
+            );
+        }
     }
 }

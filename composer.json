@@ -62,6 +62,7 @@
         "test:route-links": "@php tests/route-links.php",
         "test:route-access-logging": "@php tests/route-access-logging.php",
         "test:access-log-verifier": "@php tests/access-log-verifier.php",
+        "test:json-limit-configuration": "@php tests/json-limit-configuration.php",
         "check": [
             "@composer validate --strict",
             "@composer dump-autoload --optimize --strict-psr --strict-ambiguous",
@@ -79,6 +80,7 @@
             "@test:access-logging",
             "@test:query-middleware",
             "@test:greeting",
+            "@test:greeting-query-options",
             "@test:json-greeting",
             "@test:json-greeting-bootstrap",
             "@analyse:application",
@@ -92,16 +94,19 @@
             "@test:routes-bootstrap",
             "@test:route-links",
             "@test:route-access-logging",
-            "@test:access-log-verifier"
+            "@test:access-log-verifier",
+            "@test:json-limit-configuration"
         ],
         "check:framework": "@composer --working-dir=framework check",
+        
         "check:all": [
             "@check:framework",
             "@check",
             "@test:http",
             "@test:http-application",
             "@test:http-failure"
-        ]
+        ],
+        "test:greeting-query-options": "@php tests/greeting-query-options.php"
     },
     "config": {
         "sort-packages": true
