@@ -82,6 +82,7 @@
             "@test:response-policy",
             "@test:access-logging",
             "@test:query-middleware",
+            "@test:query-boundary-bootstrap",
             "@test:greeting",
             "@test:greeting-query-options",
             "@test:json-greeting",
@@ -99,7 +100,7 @@
             "@test:route-access-logging",
             "@test:access-log-verifier",
             "@test:json-limit-configuration",
-            "@test:greeting-query-options"
+            "@test:greeting-query-options"            
         ],
         "check:framework": "@composer --working-dir=framework check",
         
@@ -109,7 +110,8 @@
             "@test:http",
             "@test:http-application",
             "@test:http-failure"
-        ]        
+        ],
+        "test:query-boundary-bootstrap": "@php tests/query-boundary-bootstrap.php"        
     },
     "config": {
         "sort-packages": true
