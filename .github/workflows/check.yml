@@ -77,3 +77,8 @@ jobs:
 
       - name: Run all checks
         run: composer check:all
+      - name: Audit application and framework dependencies
+        if: matrix.os == 'ubuntu-latest' && matrix.php == '8.4'
+        run: |
+          composer audit --no-interaction
+          composer --working-dir=framework audit --no-interaction
