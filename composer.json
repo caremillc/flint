@@ -6,6 +6,7 @@
     "require": {
         "php": "~8.2.0 || ~8.4.0 || ~8.5.0",
         "caremillc/framework": "dev-main",
+        "robmorgan/phinx": "^0.16",
         "vlucas/phpdotenv": "^5.6"
     },
     "repositories": [
@@ -108,7 +109,8 @@
             "@test:json-limit-configuration",
             "@test:greeting-query-options",
             "@test:http-application-runner-boundaries",
-            "@test:http-reporting-failure"
+            "@test:http-reporting-failure",
+            "@test:migration-configuration"
         ],
         "check:framework": "@composer --working-dir=framework check",
         "check:all": [
@@ -125,10 +127,14 @@
         "test:http-reporting-failure": "@php tests/http-reporting-failure.php",
         "test:mysql-connection": "@php tests/mysql-connection.php",
         "test:environment-loader": "@php tests/environment-loader.php",
-        "test:mysql-transactions": "@php tests/mysql-transactions.php"
+        "test:mysql-transactions": "@php tests/mysql-transactions.php",
+        "test:migration-configuration": "@php tests/migration-configuration.php"
     },
     "config": {
-        "sort-packages": true
+        "sort-packages": true,
+        "platform": {
+            "php": "8.4.0"
+        }
     },
     "require-dev": {
         "friendsofphp/php-cs-fixer": "^3.95"
