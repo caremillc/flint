@@ -101,7 +101,8 @@
             "@test:access-log-verifier",
             "@test:json-limit-configuration",
             "@test:greeting-query-options",
-            "@test:http-application-runner-boundaries"          
+            "@test:http-application-runner-boundaries",
+            "@test:http-reporting-failure"          
         ],
         "check:framework": "@composer --working-dir=framework check",
         
@@ -115,7 +116,8 @@
         "test:query-boundary-bootstrap": "@php tests/query-boundary-bootstrap.php",
         "test:http-application-ownership": "@php tests/http-application-ownership.php",
         "test:http-application-runner": "@php tests/http-application-runner.php",
-        "test:http-application-runner-boundaries": "@php tests/http-application-runner-boundaries.php"        
+        "test:http-application-runner-boundaries": "@php tests/http-application-runner-boundaries.php",
+        "test:http-reporting-failure": "@php tests/http-reporting-failure.php"        
     },
     "config": {
         "sort-packages": true

@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Logging;
 
 use Closure;
+use Flint\Foundation\ApplicationRunException;
 use Flint\Http\Request;
+use ReflectionClass;
 use Throwable;
 
 final readonly class ExceptionReporter
@@ -21,6 +23,7 @@ final readonly class ExceptionReporter
     {
         $this->writeRecord(
             'http.handler_failed',
+            'HTTP request handling failed.',
             $exception,
             $request,
         );
@@ -30,6 +33,7 @@ final readonly class ExceptionReporter
     {
         $this->writeRecord(
             'http.entrypoint_failed',
+            'HTTP entry point failed.',
             $exception,
             null,
         );
@@ -37,31 +41,52 @@ final readonly class ExceptionReporter
 
     private function writeRecord(
         string $event,
+        string $message,
         Throwable $exception,
         ?Request $request,
     ): void {
         $id = $request?->attribute('request.id');
 
         if (
-            ! is_string($id)
+            !is_string($id)
             || preg_match('/\A[0-9a-f]{32}\z/', $id) !== 1
         ) {
             $id = null;
         }
 
-        $record = json_encode(
-            [
-                'event' => $event,
-                'request_id' => $id,
-                'method' => $request?->method(),
-                'exception' => $exception::class,
-                'message' => $exception->getMessage(),
-            ],
+        $record = [
+            'event' => $event,
+            'request_id' => $id,
+            'method' => $request?->method(),
+            'exception' => self::exceptionType($exception),
+            'message' => $message,
+        ];
+
+        if ($exception instanceof ApplicationRunException) {
+            $record['execution_exception'] = self::exceptionType(
+                $exception->executionFailure,
+            );
+
+            $record['termination_exception'] = self::exceptionType(
+                $exception->terminationFailure,
+            );
+        }
+
+        ($this->write)(json_encode(
+            $record,
             JSON_THROW_ON_ERROR
                 | JSON_INVALID_UTF8_SUBSTITUTE
                 | JSON_UNESCAPED_SLASHES,
-        );
+        ));
+    }
 
-        ($this->write)($record);
+    private static function exceptionType(Throwable $exception): string
+    {
+        // Anonymous class names can contain source paths and line numbers.
+        if ((new ReflectionClass($exception))->isAnonymous()) {
+            return 'anonymous Throwable';
+        }
+
+        return $exception::class;
     }
 }

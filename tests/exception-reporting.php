@@ -2,15 +2,19 @@
 
 declare(strict_types=1);
 
+use App\Http\HttpApplicationRunner;
 use App\Logging\ExceptionReporter;
+use Flint\Foundation\Application;
+use Flint\Foundation\ApplicationRunException;
 use Flint\Http\Headers;
 use Flint\Http\Request;
+use Flint\Http\Response;
 
 require_once dirname(__DIR__) . '/vendor/autoload.php';
 
 function reportingCheck(bool $condition, string $message): void
 {
-    if (! $condition) {
+    if (!$condition) {
         throw new RuntimeException($message);
     }
 }
@@ -33,24 +37,22 @@ $request = new Request(
     attributes: ['request.id' => $id],
 );
 
-$message = "First line\r\nSecond line\twith a tab";
-$exception = new RuntimeException($message);
+$previous = new RuntimeException('previous-secret');
+
+$exception = new RuntimeException(
+    "password=message-secret\r\nInvalid byte: \xFF",
+    previous: $previous,
+);
 
 $reporter($exception, $request);
 
-reportingCheck(count($records) === 1, 'Expected one log record.');
-
-$record = $records[0];
-
-reportingCheck(
-    ! str_contains($record, "\r") && ! str_contains($record, "\n"),
-    'A log record must not contain literal line breaks.',
-);
+reportingCheck(count($records) === 1, 'Expected one handler record.');
 
 $decoded = json_decode(
-    $record,
-    associative: true,
-    flags: JSON_THROW_ON_ERROR,
+    $records[0],
+    true,
+    512,
+    JSON_THROW_ON_ERROR,
 );
 
 reportingCheck(
@@ -59,118 +61,183 @@ reportingCheck(
         'request_id' => $id,
         'method' => 'POST',
         'exception' => RuntimeException::class,
-        'message' => $message,
+        'message' => 'HTTP request handling failed.',
     ],
-    'The structured record must preserve the expected fields.',
+    'Handler records must contain only the approved fields.',
 );
 
-foreach (['query-secret', 'header-secret', 'body-secret'] as $secret) {
-    reportingCheck(
-        ! str_contains($record, $secret),
-        'The reporter must not copy request secrets into the record.',
-    );
-}
+// Entry-point failures use the same restricted diagnostic policy.
+$reporter->reportUncaught($exception);
 
-// Invalid UTF-8 in an exception message must not prevent reporting.
-$reporter(new RuntimeException("Invalid byte: \xFF"), new Request());
-
-$invalidUtf8 = json_decode(
+$decoded = json_decode(
     $records[1],
-    associative: true,
-    flags: JSON_THROW_ON_ERROR,
+    true,
+    512,
+    JSON_THROW_ON_ERROR,
 );
 
 reportingCheck(
-    $invalidUtf8['message'] === "Invalid byte: \u{FFFD}",
-    'Invalid UTF-8 must be replaced.',
-);
-reportingCheck(
-    $invalidUtf8['request_id'] === null,
-    'Missing request IDs must be represented as null.',
+    $decoded === [
+        'event' => 'http.entrypoint_failed',
+        'request_id' => null,
+        'method' => null,
+        'exception' => RuntimeException::class,
+        'message' => 'HTTP entry point failed.',
+    ],
+    'Entry-point records must use safe diagnostics and absent request context.',
 );
 
-// Invalid internal IDs must not become correlation identifiers.
+// Invalid correlation IDs must not enter the log.
 foreach (['invalid', 123, null] as $invalidId) {
     $reporter(
-        new RuntimeException('Example'),
+        $exception,
         new Request(attributes: ['request.id' => $invalidId]),
     );
 
     $latest = json_decode(
         $records[array_key_last($records)],
-        associative: true,
-        flags: JSON_THROW_ON_ERROR,
+        true,
+        512,
+        JSON_THROW_ON_ERROR,
     );
 
     reportingCheck(
         $latest['request_id'] === null,
-        'Invalid request IDs must be represented as null.',
+        'Invalid request IDs must become null.',
     );
 }
 
-// Writer failures retain their identity for the outer error boundary.
-$writeFailure = new RuntimeException('Log destination unavailable.');
+// Anonymous exception types must not expose their generated source location.
+$reporter->reportUncaught(
+    new class ('anonymous-secret') extends RuntimeException {},
+);
+
+$anonymousRecord = $records[array_key_last($records)];
+
+$decoded = json_decode(
+    $anonymousRecord,
+    true,
+    512,
+    JSON_THROW_ON_ERROR,
+);
+
+reportingCheck(
+    $decoded['exception'] === 'anonymous Throwable',
+    'Anonymous exception types must use a location-free label.',
+);
+
+reportingCheck(
+    !str_contains($anonymousRecord, 'exception-reporting.php'),
+    'Anonymous exception diagnostics must not include source filenames.',
+);
+
+// Exercise the real runner-to-reporter integration for combined failure.
+$application = new Application(dirname(__DIR__));
+$emissionFailure = new RuntimeException('emission-secret');
+$cleanupFailure = new LogicException('cleanup-secret');
+$attempts = 0;
+
+$application->onTerminate(
+    static function () use ($cleanupFailure): void {
+        throw $cleanupFailure;
+    },
+);
+
+$before = count($records);
+
+$runner = new HttpApplicationRunner(
+    emit: static function (Response $response) use (
+        &$attempts,
+        $emissionFailure,
+    ): void {
+        ++$attempts;
+
+        throw $emissionFailure;
+    },
+    report: $reporter->reportUncaught(...),
+);
+
+$runner->run(
+    $application,
+    static fn (Application $running): Response => new Response(body: 'Ready'),
+);
+
+reportingCheck(
+    $attempts === 1 && $application->isTerminated(),
+    'Combined failure must terminate without another emission attempt.',
+);
+
+reportingCheck(
+    count($records) === $before + 1,
+    'Combined failure must produce one diagnostic record.',
+);
+
+$decoded = json_decode(
+    $records[array_key_last($records)],
+    true,
+    512,
+    JSON_THROW_ON_ERROR,
+);
+
+reportingCheck(
+    $decoded === [
+        'event' => 'http.entrypoint_failed',
+        'request_id' => null,
+        'method' => null,
+        'exception' => ApplicationRunException::class,
+        'message' => 'HTTP entry point failed.',
+        'execution_exception' => RuntimeException::class,
+        'termination_exception' => LogicException::class,
+    ],
+    'Combined diagnostics must identify both failure types safely.',
+);
+
+// Every emitted record must remain single-line JSON without secret values.
+foreach ($records as $record) {
+    reportingCheck(
+        !str_contains($record, "\r") && !str_contains($record, "\n"),
+        'Log records must not contain literal line breaks.',
+    );
+
+    foreach ([
+        'query-secret',
+        'header-secret',
+        'body-secret',
+        'message-secret',
+        'previous-secret',
+        'anonymous-secret',
+        'emission-secret',
+        'cleanup-secret',
+    ] as $secret) {
+        reportingCheck(
+            !str_contains($record, $secret),
+            'Diagnostic record exposed a forbidden value.',
+        );
+    }
+}
+
+// The reporter itself preserves writer failure identity.
+$writerFailure = new RuntimeException('Writer unavailable.');
 
 $brokenReporter = new ExceptionReporter(
-    static function (string $record) use ($writeFailure): void {
-        throw $writeFailure;
+    static function (string $record) use ($writerFailure): void {
+        throw $writerFailure;
     },
 );
 
 $caught = null;
 
 try {
-    $brokenReporter(new RuntimeException('Handler failed.'), new Request());
-} catch (Throwable $exception) {
-    $caught = $exception;
+    $brokenReporter->reportUncaught($exception);
+} catch (Throwable $failure) {
+    $caught = $failure;
 }
 
 reportingCheck(
-    $caught === $writeFailure,
-    'Writer failures must propagate unchanged.',
+    $caught === $writerFailure,
+    'Reporter writer failures must propagate unchanged.',
 );
 
-$entrypointRecords = [];
-
-$entrypointReporter = new ExceptionReporter(
-    static function (string $record) use (&$entrypointRecords): void {
-        $entrypointRecords[] = $record;
-    },
-);
-
-$entrypointFailure = new RuntimeException("Bootstrap failed.\nDetails.");
-
-$entrypointReporter->reportUncaught($entrypointFailure);
-
-reportingCheck(
-    count($entrypointRecords) === 1,
-    'An entry-point failure must produce one record.',
-);
-
-$entrypointRecord = $entrypointRecords[0];
-
-reportingCheck(
-    ! str_contains($entrypointRecord, "\n")
-        && ! str_contains($entrypointRecord, "\r"),
-    'Entry-point records must not contain literal line breaks.',
-);
-
-$entrypointDecoded = json_decode(
-    $entrypointRecord,
-    associative: true,
-    flags: JSON_THROW_ON_ERROR,
-);
-
-reportingCheck(
-    $entrypointDecoded === [
-        'event' => 'http.entrypoint_failed',
-        'request_id' => null,
-        'method' => null,
-        'exception' => RuntimeException::class,
-        'message' => "Bootstrap failed.\nDetails.",
-    ],
-    'Entry-point records must identify unavailable request context.',
-);
-
-echo 'PASS: Structured exception reporting, escaping, and failure propagation.'
+echo 'PASS: Restricted exception diagnostics, secret exclusion, correlation, '
+    . 'anonymous types, combined failures, and writer failure identity.'
     . PHP_EOL;
