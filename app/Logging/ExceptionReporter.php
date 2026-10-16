@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Logging;
 
 use Closure;
+use Flint\Database\Exception\TransactionRollbackException;
 use Flint\Foundation\ApplicationRunException;
 use Flint\Http\Request;
 use ReflectionClass;
@@ -72,6 +73,15 @@ final readonly class ExceptionReporter
             );
         }
 
+        if ($exception instanceof TransactionRollbackException) {
+            $record['operation_exception'] = self::exceptionType(
+                $exception->operationFailure,
+            );
+
+            $record['rollback_exception'] = self::exceptionType(
+                $exception->rollbackFailure,
+            );
+        }
         ($this->write)(json_encode(
             $record,
             JSON_THROW_ON_ERROR

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Http\HttpApplicationRunner;
 use App\Logging\ExceptionReporter;
+use Flint\Database\Exception\TransactionRollbackException;
 use Flint\Foundation\Application;
 use Flint\Foundation\ApplicationRunException;
 use Flint\Http\Headers;
@@ -65,6 +66,34 @@ reportingCheck(
     ],
     'Handler records must contain only the approved fields.',
 );
+
+$reporter->reportUncaught(
+    new TransactionRollbackException(
+        new RuntimeException('message-secret'),
+        new LogicException('cleanup-secret'),
+    ),
+);
+
+$decoded = json_decode(
+    $records[array_key_last($records)],
+    true,
+    512,
+    JSON_THROW_ON_ERROR,
+);
+
+reportingCheck(
+    $decoded === [
+        'event' => 'http.entrypoint_failed',
+        'request_id' => null,
+        'method' => null,
+        'exception' => TransactionRollbackException::class,
+        'message' => 'HTTP entry point failed.',
+        'operation_exception' => RuntimeException::class,
+        'rollback_exception' => LogicException::class,
+    ],
+    'Rollback diagnostics must identify both failure types safely.',
+);
+
 
 // Entry-point failures use the same restricted diagnostic policy.
 $reporter->reportUncaught($exception);
