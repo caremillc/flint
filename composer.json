@@ -4,7 +4,7 @@
     "type": "project",
     "license": "MIT",
     "require": {
-        "php": "~8.4.0 || ~8.5.0",
+        "php": "~8.2.0 || ~8.4.0 || ~8.5.0",
         "caremillc/framework": "dev-main",
         "vlucas/phpdotenv": "^5.6"
     },
@@ -67,6 +67,10 @@
         "setup": "bash bin/setup.sh",
         "doctor": "bash bin/doctor.sh",
         "test:greeting-query-options": "@php tests/greeting-query-options.php",
+        "test:integration": [
+            "@test:mysql-connection",
+            "@test:mysql-transactions"
+        ],
         "check": [
             "@composer validate --strict",
             "@composer dump-autoload --optimize --strict-psr --strict-ambiguous",
@@ -104,10 +108,9 @@
             "@test:json-limit-configuration",
             "@test:greeting-query-options",
             "@test:http-application-runner-boundaries",
-            "@test:http-reporting-failure"          
+            "@test:http-reporting-failure"
         ],
         "check:framework": "@composer --working-dir=framework check",
-        
         "check:all": [
             "@check:framework",
             "@check",
@@ -121,7 +124,8 @@
         "test:http-application-runner-boundaries": "@php tests/http-application-runner-boundaries.php",
         "test:http-reporting-failure": "@php tests/http-reporting-failure.php",
         "test:mysql-connection": "@php tests/mysql-connection.php",
-        "test:environment-loader": "@php tests/environment-loader.php"        
+        "test:environment-loader": "@php tests/environment-loader.php",
+        "test:mysql-transactions": "@php tests/mysql-transactions.php"
     },
     "config": {
         "sort-packages": true
