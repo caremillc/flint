@@ -117,7 +117,8 @@
         "test:http-application-ownership": "@php tests/http-application-ownership.php",
         "test:http-application-runner": "@php tests/http-application-runner.php",
         "test:http-application-runner-boundaries": "@php tests/http-application-runner-boundaries.php",
-        "test:http-reporting-failure": "@php tests/http-reporting-failure.php"        
+        "test:http-reporting-failure": "@php tests/http-reporting-failure.php",
+        "test:mysql-connection": "@php tests/mysql-connection.php"        
     },
     "config": {
         "sort-packages": true
