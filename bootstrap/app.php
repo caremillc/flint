@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Database\DatabaseConnections;
 use App\Providers\ConfigurationServiceProvider;
 use Flint\Configuration\Configuration;
 use Flint\Foundation\Application;
@@ -23,7 +24,12 @@ try {
     $application->register(
         new ConfigurationServiceProvider($configuration),
     );
-
+    // add db connection
+    $application->container()->instance(
+        DatabaseConnections::class,
+        new DatabaseConnections($configuration),
+    );
+        // end db connection
     $application->boot();
 } catch (Throwable $initializationFailure) {
     try {

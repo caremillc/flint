@@ -5,7 +5,8 @@
     "license": "MIT",
     "require": {
         "php": "~8.4.0 || ~8.5.0",
-        "caremillc/framework": "dev-main"
+        "caremillc/framework": "dev-main",
+        "vlucas/phpdotenv": "^5.6"
     },
     "repositories": [
         {
@@ -74,6 +75,7 @@
             "@php -l routes/web.php",
             "@test",
             "@test:configuration",
+            "@test:environment-loader",
             "@test:configuration-validation",
             "@test:http-bootstrap",
             "@test:http-middleware",
@@ -118,7 +120,8 @@
         "test:http-application-runner": "@php tests/http-application-runner.php",
         "test:http-application-runner-boundaries": "@php tests/http-application-runner-boundaries.php",
         "test:http-reporting-failure": "@php tests/http-reporting-failure.php",
-        "test:mysql-connection": "@php tests/mysql-connection.php"        
+        "test:mysql-connection": "@php tests/mysql-connection.php",
+        "test:environment-loader": "@php tests/environment-loader.php"        
     },
     "config": {
         "sort-packages": true

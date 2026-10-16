@@ -40,6 +40,7 @@ jobs:
       DATABASE_PORT: '3306'
       JSON_MAX_BODY_BYTES: '4096'
       COMPOSER_NO_INTERACTION: '1'
+      FLINT_LOAD_DOTENV: 'false'
 
     steps:
       - name: Check out repository

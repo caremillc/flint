@@ -2,8 +2,11 @@
 
 declare(strict_types=1);
 
+use App\Database\DatabaseConnections;
+use Flint\Configuration\Configuration;
 use Flint\Database\Exception\DatabaseConnectionException;
 use Flint\Database\MySqlConnectionFactory;
+use Flint\Foundation\Application;
 
 require_once dirname(__DIR__) . '/vendor/autoload.php';
 
@@ -27,15 +30,47 @@ function mysqlTestEnvironment(string $name): string
     return $value;
 }
 
+// if (!extension_loaded('pdo_mysql')) {
+//     throw new RuntimeException(
+//         'Enable pdo_mysql for the CLI PHP runtime before running this test.',
+//     );
+// }
+
+// $database = mysqlTestEnvironment('FLINT_TEST_DATABASE');
+// $username = mysqlTestEnvironment('FLINT_TEST_DATABASE_USER');
+// $password = mysqlTestEnvironment('FLINT_TEST_DATABASE_PASSWORD');
+
 if (!extension_loaded('pdo_mysql')) {
     throw new RuntimeException(
         'Enable pdo_mysql for the CLI PHP runtime before running this test.',
     );
 }
 
-$database = mysqlTestEnvironment('FLINT_TEST_DATABASE');
-$username = mysqlTestEnvironment('FLINT_TEST_DATABASE_USER');
-$password = mysqlTestEnvironment('FLINT_TEST_DATABASE_PASSWORD');
+$application = require dirname(__DIR__) . '/bootstrap/app.php';
+
+if (!$application instanceof Application) {
+    throw new RuntimeException('Invalid application bootstrap.');
+}
+
+$configuration = $application->container()->get(Configuration::class);
+$connections = $application->container()->get(DatabaseConnections::class);
+
+if (
+    !$configuration instanceof Configuration
+    || !$connections instanceof DatabaseConnections
+) {
+    throw new RuntimeException('Database configuration services are unavailable.');
+}
+
+$database = $configuration->string('database.name');
+$username = $configuration->string('database.username');
+$password = $configuration->string('database.password');
+$port = $configuration->integer('database.port');
+
+$factory = new MySqlConnectionFactory();
+$connection = $connections->connect();
+
+
 
 $portValue = getenv('FLINT_TEST_DATABASE_PORT');
 
@@ -169,6 +204,8 @@ mysqlConnectionCheck(
 
 $statement->closeCursor();
 unset($statement, $connection, $password);
+
+$application->terminate();
 
 echo 'PASS: MySQL connection, utf8mb4, bound values, safe failure, and recovery.'
     . PHP_EOL;
