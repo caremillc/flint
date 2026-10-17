@@ -6,7 +6,6 @@
     "require": {
         "php": "~8.2.0 || ~8.4.0 || ~8.5.0",
         "caremillc/framework": "dev-main",
-        "robmorgan/phinx": "^0.16",
         "vlucas/phpdotenv": "^5.6"
     },
     "repositories": [
@@ -70,7 +69,8 @@
         "test:greeting-query-options": "@php tests/greeting-query-options.php",
         "test:integration": [
             "@test:mysql-connection",
-            "@test:mysql-transactions"
+            "@test:mysql-transactions",
+            "@test:mysql-migration-lock"
         ],
         "check": [
             "@composer validate --strict",
@@ -128,7 +128,7 @@
         "test:mysql-connection": "@php tests/mysql-connection.php",
         "test:environment-loader": "@php tests/environment-loader.php",
         "test:mysql-transactions": "@php tests/mysql-transactions.php",
-        "test:migration-configuration": "@php tests/migration-configuration.php"
+        "test:mysql-migration-lock": "@php tests/mysql-migration-lock.php"
     },
     "config": {
         "sort-packages": true,

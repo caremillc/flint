@@ -99,7 +99,7 @@ reportingCheck(
 $reporter->reportUncaught($exception);
 
 $decoded = json_decode(
-    $records[1],
+    $records[array_key_last($records)],
     true,
     512,
     JSON_THROW_ON_ERROR,
