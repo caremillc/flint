@@ -128,7 +128,8 @@
         "test:mysql-connection": "@php tests/mysql-connection.php",
         "test:environment-loader": "@php tests/environment-loader.php",
         "test:mysql-transactions": "@php tests/mysql-transactions.php",
-        "test:mysql-migration-lock": "@php tests/mysql-migration-lock.php"
+        "test:mysql-migration-lock": "@php tests/mysql-migration-lock.php",
+        "migrate": "@php bin/migrate.php"
     },
     "config": {
         "sort-packages": true,
